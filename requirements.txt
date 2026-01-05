@@ -1,0 +1,37 @@
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Data Processing
+numpy==1.26.3
+pandas==2.1.4
+
+# Date/Time
+python-dateutil==2.8.2
+
+# HTTP Client (for future real data sources)
+httpx==0.26.0
+
+# Phase 2A: Authentication & Database
+supabase==2.3.4
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Phase 2A: LLM Integration
+groq==0.4.2
+
+# Utilities
+python-dotenv==1.0.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+
+# Development
+black==23.12.1
+flake8==7.0.0
+mypy==1.8.0

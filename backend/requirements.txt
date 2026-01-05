@@ -1,0 +1,34 @@
+# Stock Intelligence Copilot - Backend Dependencies
+# Phase 1 + Phase 2A Requirements
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Data Validation
+pydantic==2.5.3
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# Data Processing
+numpy==1.26.3
+pandas==2.1.4
+python-dateutil==2.9.0
+pytz==2024.1
+
+# HTTP Client
+httpx==0.26.0
+requests==2.31.0
+yfinance==0.2.36
+
+# Phase 2A: Authentication & Database
+supabase==2.27.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Phase 2A: LLM Integration
+groq==0.4.2
+
+# Utilities
+python-dotenv==1.0.0
