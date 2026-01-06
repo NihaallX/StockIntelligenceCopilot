@@ -47,18 +47,18 @@ class Settings(BaseSettings):
     CACHE_TTL_HISTORICAL: int = 86400  # 24 hours
     
     # Phase 2A: Supabase Configuration
-    SUPABASE_URL: str
-    SUPABASE_ANON_KEY: str
-    SUPABASE_SERVICE_ROLE_KEY: str
+    SUPABASE_URL: str = "https://dummy.supabase.co"
+    SUPABASE_ANON_KEY: str = "dummy_anon_key"
+    SUPABASE_SERVICE_ROLE_KEY: str = "dummy_service_key"
     
     # Phase 2A: JWT Configuration
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: str = "your_super_secret_jwt_key_change_in_production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Phase 2A: LLM Configuration
-    GROQ_API_KEY: str
+    GROQ_API_KEY: str = "dummy_groq_key"
     GROQ_MODEL: str = "llama-3.1-70b-versatile"
     
     # Phase 2A: Rate Limiting
