@@ -25,7 +25,7 @@ export default function LoginPage() {
     try {
       const response = await apiLogin(email, password);
       login(response.user, response.tokens);
-      router.push("/dashboard");
+      router.push("/dashboard/pulse");
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {

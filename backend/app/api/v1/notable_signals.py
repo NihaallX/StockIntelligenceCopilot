@@ -19,11 +19,11 @@ import logging
 from app.api.dependencies import get_current_user
 from app.models.auth_models import User
 from app.core.cache import cache_manager
-from app.core.context_agent.mcp_fetcher import MCPContextFetcher
+from app.mcp.legacy_adapter import get_legacy_adapter
 from app.core.context_agent.models import MarketContext
 
 logger = logging.getLogger(__name__)
-mcp_fetcher = MCPContextFetcher()
+mcp_adapter = get_legacy_adapter()
 
 router = APIRouter(prefix="/portfolio/notable-signals", tags=["portfolio"])
 

@@ -19,7 +19,7 @@ pytz==2024.1
 # HTTP Client
 httpx==0.26.0
 requests==2.31.0
-yfinance==0.2.36
+yfinance==1.0  # Updated for MCP integration
 
 # Phase 2A: Authentication & Database
 supabase==2.27.0

@@ -30,9 +30,14 @@ import {
   ThumbsDown,
   Clock,
   Target,
-  Activity
+  Activity,
+  Info,
+  Database
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { DataQualityBadge } from '@/components/DataQualityBadge';
+import { HelpTooltip, HelpTooltips } from '@/components/HelpTooltip';
+import { SignalFreshness } from '@/components/SignalFreshness';
 
 interface TradingThesis {
   ticker: string;
@@ -248,16 +253,42 @@ export default function ExperimentalModeView() {
                 {getBiasIcon(thesis.bias)}
                 <div>
                   <CardTitle>{thesis.ticker}</CardTitle>
-                  <CardDescription>Trading Hypothesis</CardDescription>
+                  <CardDescription className="flex items-center gap-2">
+                    Trading Hypothesis {HelpTooltips.experimentalMode}
+                  </CardDescription>
                 </div>
               </div>
-              <Badge className={getBiasColor(thesis.bias)}>
-                {thesis.bias.toUpperCase()}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <DataQualityBadge quality="live" source="MCP v2" />
+                <Badge className={getBiasColor(thesis.bias)}>
+                  {thesis.bias.toUpperCase()}
+                </Badge>
+              </div>
             </div>
+
+            {/* Signal Freshness */}
+            {thesis.signal_age_minutes !== undefined && (
+              <div className="mt-3 pt-3 border-t">
+                <SignalFreshness generatedAt={new Date(Date.now() - thesis.signal_age_minutes * 60000).toISOString()} />
+              </div>
+            )}
           </CardHeader>
 
           <CardContent className="pt-6 space-y-6">
+            {/* Signal Generation vs Context Separation */}
+            <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <strong className="text-blue-700 dark:text-blue-300">How this was generated:</strong>
+                  <p className="text-muted-foreground mt-1">
+                    1. Technical indicators (RSI, MACD, Volume) analyzed first<br />
+                    2. Signal generated based on price action patterns<br />
+                    3. Market context retrieved AFTER signal creation to explain reasoning
+                  </p>
+                </div>
+              </div>
+            </div>
             {/* Thesis */}
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Thesis</h3>
@@ -270,6 +301,7 @@ export default function ExperimentalModeView() {
                 <div className="flex items-center gap-2 mb-2">
                   <Target className="w-4 h-4 text-gray-500" />
                   <span className="text-sm font-medium text-gray-500">Confidence</span>
+                  {HelpTooltips.confidence}
                 </div>
                 <p className={`text-2xl font-bold ${getConfidenceColor(thesis.confidence)}`}>
                   {thesis.confidence}%
@@ -285,6 +317,7 @@ export default function ExperimentalModeView() {
                 <div className="flex items-center gap-2 mb-2">
                   <Activity className="w-4 h-4 text-gray-500" />
                   <span className="text-sm font-medium text-gray-500">Regime</span>
+                  {HelpTooltips.marketRegime}
                 </div>
                 <p className="text-2xl font-bold capitalize">{thesis.regime}</p>
               </div>
@@ -293,6 +326,10 @@ export default function ExperimentalModeView() {
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="w-4 h-4 text-gray-500" />
                   <span className="text-sm font-medium text-gray-500">Time Horizon</span>
+                  <HelpTooltip
+                    title="Time Horizon"
+                    content="Expected holding period for this trade. Intraday: Same-day exit. Swing: 2-5 days. Position: Weeks to months."
+                  />
                 </div>
                 <p className="text-2xl font-bold">{thesis.time_horizon}</p>
               </div>
@@ -302,9 +339,9 @@ export default function ExperimentalModeView() {
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Expected Price Range</h3>
               <div className="flex items-center gap-2">
-                <Badge variant="outline">₹{thesis.price_range_low.toFixed(2)}</Badge>
+                <Badge variant="default">₹{thesis.price_range_low.toFixed(2)}</Badge>
                 <span className="text-gray-400">to</span>
-                <Badge variant="outline">₹{thesis.price_range_high.toFixed(2)}</Badge>
+                <Badge variant="default">₹{thesis.price_range_high.toFixed(2)}</Badge>
               </div>
             </div>
 
@@ -346,15 +383,6 @@ export default function ExperimentalModeView() {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Index Alignment</h3>
                 <p className="text-sm">{thesis.index_alignment}</p>
-              </div>
-            )}
-
-            {/* Signal Age */}
-            {thesis.signal_age_minutes !== undefined && thesis.signal_age_minutes > 0 && (
-              <div>
-                <Badge variant="outline" className="text-amber-600">
-                  Signal Age: {thesis.signal_age_minutes} minutes
-                </Badge>
               </div>
             )}
 

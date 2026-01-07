@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 import logging
 from decimal import Decimal
+from datetime import datetime
 
 from app.models.portfolio_models import EnhancedInsightRequest, EnhancedInsightResponse
 from app.models.schemas import AnalysisRequest
@@ -12,13 +13,14 @@ from app.core.orchestrator import orchestrator
 from app.core.fundamentals import FundamentalProviderCompat as FundamentalProvider
 from app.core.scenarios import ScenarioGenerator
 from app.core.audit import AuditLogger
-from app.core.context_agent.mcp_fetcher import MCPContextFetcher
+from app.mcp.legacy_adapter import get_legacy_adapter
+from app.core.context_agent.models import MarketContext
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Initialize MCP fetcher
-mcp_fetcher = MCPContextFetcher()
+# Initialize new MCP adapter (replaces old MCPContextFetcher)
+mcp_adapter = get_legacy_adapter()
 
 
 @router.post("/enhanced", response_model=EnhancedInsightResponse)
@@ -117,34 +119,49 @@ async def enhanced_analysis(
                 logger.warning(f"⚠️ Scenario generation failed for {request.ticker}: {e}")
                 # Continue without scenarios
         
-        # Step 4: Fetch MCP context (AFTER signal generation)
+        # Step 4: Fetch MCP context using new providers (AFTER signal generation)
         market_context = None
         try:
             logger.info(f"Fetching MCP context for {request.ticker}")
             signal = technical_insight.signal
             
-            # Extract signal reasons from reasoning.primary_factors
-            signal_reasons = signal.reasoning.primary_factors if signal.reasoning else []
-            
-            # Fetch context with signal-aware filtering
-            context_output = await mcp_fetcher.fetch_context(
+            # Use new MCP adapter with legacy format compatibility
+            context_dict = await mcp_adapter.fetch_context(
                 ticker=request.ticker,
-                market="NSE",  # TODO: Extract from ticker
-                time_horizon=request.time_horizon,
-                signal_type=signal.strength.signal_type,
-                signal_reasons=signal_reasons,
-                confidence=signal.strength.confidence
+                signal_direction=signal.strength.signal_type.lower()  # "bullish" | "bearish" | "neutral"
             )
             
-            # Build MarketContext response
-            if context_output:
-                market_context = context_output
-                logger.info(f"✅ MCP context fetched for {request.ticker}: {len(context_output.supporting_points)} points")
+            # Transform legacy dict to MarketContext model
+            if context_dict and context_dict.get("data_source") != "fallback":
+                # Build context_summary from legacy fields
+                summary_parts = []
+                if context_dict.get("market_sentiment") != "neutral":
+                    summary_parts.append(f"Market sentiment: {context_dict['market_sentiment']}")
+                if context_dict.get("index_trend") != "unavailable":
+                    summary_parts.append(f"Index trend: {context_dict['index_trend']}")
+                if context_dict.get("volume_analysis") != "unavailable":
+                    summary_parts.append(f"Volume: {context_dict['volume_analysis']}")
+                
+                context_summary = ". ".join(summary_parts) if summary_parts else "Market context available from real-time data providers."
+                
+                # Create MarketContext model WITHOUT supporting_points (legacy adapter has no citations)
+                # This avoids Pydantic validation error for empty sources list
+                market_context = MarketContext(
+                    context_summary=context_summary,
+                    supporting_points=[],  # Empty list is valid - min_length constraint is on sources, not supporting_points
+                    data_sources_used=[context_dict["data_source"]],
+                    fetch_timestamp=datetime.fromisoformat(context_dict["metadata"]["timestamp"]),
+                    mcp_status="success"
+                )
+                logger.info(f"✅ New MCP context fetched for {request.ticker}: {context_dict.get('data_source')}")
             else:
-                logger.warning(f"⚠️ No high-quality MCP context available for {request.ticker}")
+                logger.warning(f"⚠️ MCP context unavailable for {request.ticker}")
+                # Leave market_context as None - EnhancedInsightResponse allows Optional
+                
         except Exception as e:
             logger.warning(f"⚠️ MCP context fetch failed for {request.ticker}: {e}")
             # Continue without context - system must work if MCP fails
+            market_context = None
         
         # Step 5: Combine insights
         enhanced_response = EnhancedInsightResponse(

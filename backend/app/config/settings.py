@@ -30,21 +30,26 @@ class Settings(BaseSettings):
     # Risk Engine Settings
     MAX_CONFIDENCE_THRESHOLD: float = 0.95  # Never show >95% confidence
     MIN_ACTIONABLE_CONFIDENCE: float = 0.60  # Minimum for recommendations
-    DEFAULT_RISK_TOLERANCE: str = "conservative"  # Phase 2A: conservative by default
+    DEFAULT_RISK_TOLERANCE: str = "moderate"  # Intraday-first: moderate default
     
-    # Signal Settings
-    LONG_TERM_MODE: bool = True  # Default to long-term investing
-    SHORT_TERM_ENABLED: bool = False  # MVP: disable short-term trading
+    # Signal Settings (INTRADAY-FIRST)
+    INTRADAY_MODE: bool = True  # Default to intraday analysis
+    LONG_TERM_MODE: bool = False  # Disable long-term by default
+    SHORT_TERM_ENABLED: bool = False  # Disable short-term trading
     
-    # Data Settings
-    DEFAULT_LOOKBACK_DAYS: int = 90  # Default historical data window
+    # Data Settings (INTRADAY-FIRST)
+    DEFAULT_LOOKBACK_DAYS: int = 1  # Intraday: current day only
+    DEFAULT_TIMEFRAME: str = "INTRADAY"  # Default analysis timeframe
     
     # Phase 2C: Market Data Provider Configuration
     DATA_PROVIDER: str = "mock"  # Options: "mock" or "live"
-    ALPHA_VANTAGE_API_KEY: str = ""  # Required if DATA_PROVIDER=live
-    FMP_API_KEY: str = ""  # Financial Modeling Prep API key for fundamental data
+    FMP_API_KEY: str = "qty5ZwSYBANWmtoWHYi1zfE8zDbKXXOV"  # Financial Modeling Prep API key (working!)
     CACHE_TTL_INTRADAY: int = 300  # 5 minutes
     CACHE_TTL_HISTORICAL: int = 86400  # 24 hours
+    
+    # MCP (Market Context Provider) - Simplified to Yahoo Finance Only
+    # Removed: ALPHA_VANTAGE_KEY (rate limited), TWELVE_DATA_KEY (paywall for Indian stocks)
+    MCP_PROVIDER: str = "yahoo"  # Yahoo Finance only (intraday + fundamentals)
     
     # Phase 2A: Supabase Configuration
     SUPABASE_URL: str = "https://dummy.supabase.co"
@@ -60,6 +65,11 @@ class Settings(BaseSettings):
     # Phase 2A: LLM Configuration
     GROQ_API_KEY: str = "dummy_groq_key"
     GROQ_MODEL: str = "llama-3.1-70b-versatile"
+    
+    # OpenRouter Configuration (for explanation service)
+    OPENROUTER_API_KEY: str = "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"  # Optional: For LLM explanations
+    OPENROUTER_MODEL: str = "xiaomi/mimo-v2-flash:free"  # Free model for explanations
+    LLM_EXPLANATIONS_ENABLED: bool = True  # Feature flag: Enable LLM explanations
     
     # Phase 2A: Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
