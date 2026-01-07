@@ -1,5 +1,9 @@
 """Final verification test for Company News Fetcher
 
+⚠️ DEPRECATED: This test uses old RSS-based MCP fetcher.
+   New MCP V2 uses real data providers (Alpha Vantage, Twelve Data, Yahoo Finance).
+   See: test_mcp_real_data.py for current tests.
+
 This test demonstrates:
 1. Real implementation is functional
 2. All validation layers work
@@ -13,7 +17,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.core.context_agent.mcp_fetcher import MCPContextFetcher
+# Old import - replaced by new MCP system
+# from app.core.context_agent.mcp_fetcher import MCPContextFetcher
+from app.mcp.legacy_adapter import get_legacy_adapter
 from app.core.context_agent import MarketContextAgent, ContextEnrichmentInput
 
 

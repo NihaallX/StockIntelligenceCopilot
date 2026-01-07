@@ -1,435 +1,351 @@
-# Stock Intelligence Copilot - Architecture Documentation
+# ARCHITECTURE - Intraday Decision Support System
 
-## System Overview
+**Purpose**: Personal intraday trading assistant focused on VWAP + Volume detection
 
-**Purpose**: AI-assisted stock market analysis for retail investors  
-**Architecture**: Modular, pipeline-based backend  
-**Technology Stack**: Python 3.11+, FastAPI, NumPy, Pydantic  
-**Deployment Model**: REST API (backend-only MVP)
-
-## Design Principles
-
-### 1. Safety First
-- No trade execution capabilities
-- Probabilistic outputs only (never certainty)
-- Confidence capped at 95%
-- Deterministic risk engine
-- "No action" is a valid and encouraged outcome
-
-### 2. Explainability
-- Every signal has clear reasoning
-- Assumptions explicitly stated
-- Limitations acknowledged
-- Human-readable summaries
-- LLM-friendly structured output
-
-### 3. Modularity
-- Single Responsibility Principle per module
-- Loose coupling between components
-- Easy to test in isolation
-- Simple to replace/upgrade components
-
-### 4. Compliance-Aware
-- Built-in disclaimers
-- Risk warnings
-- Conservative defaults
-- Audit trail ready
-
-## Module Architecture
-
-### Data Flow
-```
-Request → Orchestrator → [Market Data → Indicators → Signals → Risk → Explanation] → Response
-```
-
-### Core Modules
-
-#### 1. Market Data Provider (`market_data/`)
-**Purpose**: Fetch and normalize stock data
-
-**MVP Implementation**: Mock data generator
-- 10 pre-defined stocks (AAPL, MSFT, etc.)
-- Generates realistic OHLCV data
-- Includes fundamental data (P/E, market cap)
-- Seeded for reproducibility
-
-**Production Path**:
-- Integrate Yahoo Finance API
-- Add Alpha Vantage support
-- Polygon.io for real-time data
-- Redis caching layer
-
-**Interface**:
-```python
-def get_stock_data(ticker: str, lookback_days: int) -> MarketData
-```
+**Philosophy**: Deterministic, transparent, testable. No news scraping, no ML predictions.
 
 ---
 
-#### 2. Technical Indicators (`indicators/`)
-**Purpose**: Calculate technical indicators from price data
+## 🎯 SYSTEM GOAL
 
-**Indicators Implemented**:
-- **Trend**: SMA (20, 50), EMA (12, 26)
-- **Momentum**: RSI (14), MACD
-- **Volatility**: Bollinger Bands (20, 2σ)
+Answer one question: **"Should I care about this stock right now or not?"**
 
-**Algorithm Notes**:
-- RSI uses standard 14-period calculation
-- MACD: 12/26/9 periods (industry standard)
-- Bollinger: 2 standard deviations
-
-**Future Enhancements**:
-- Volume-weighted indicators (VWAP)
-- Stochastic oscillator
-- ADX (trend strength)
-- Fibonacci retracements
-
-**Interface**:
-```python
-def calculate_all(ticker: str, prices: List[StockPrice]) -> TechnicalIndicators
-```
+In 10 seconds or less.
 
 ---
 
-#### 3. Signal Generator (`signals/`)
-**Purpose**: Generate buy/sell/hold signals from indicators
+## 🏗️ CORE ARCHITECTURE
 
-**Logic**:
-- Rule-based evaluation (no ML in MVP)
-- Each indicator votes with weighted score
-- Bullish/bearish/neutral aggregation
-- Confidence = weighted agreement
-- Contradicting factors reduce confidence
-
-**Signal Rules**:
-- **MA Crossover**: SMA(20) vs SMA(50)
-- **RSI**: <30 = oversold, >70 = overbought
-- **MACD**: Crossover with signal line
-- **Bollinger**: Price vs bands (mean reversion)
-
-**Confidence Calculation**:
 ```
-confidence = agreeing_weight / total_weight
-confidence = min(confidence, 0.95)  # Epistemic humility
+┌─────────────────────────────────────────┐
+│          USER (Login)                    │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│      TODAY'S WATCH                       │
+│  3-7 stocks, regime label, bias          │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│      STOCK DETAIL                        │
+│  VWAP position, volume, risk note        │
+└─────────────────────────────────────────┘
 ```
 
-**Future Enhancements**:
-- ML-based signal refinement
-- Sentiment analysis integration
-- Pattern recognition (head-and-shoulders, etc.)
-
-**Interface**:
-```python
-def generate_signal(
-    market_data: MarketData,
-    indicators: TechnicalIndicators,
-    time_horizon: TimeHorizon
-) -> Signal
-```
+**Flow**: 3 screens max. No multi-tab dashboards.
 
 ---
 
-#### 4. Risk Engine (`risk/`)
-**Purpose**: Assess risk and enforce safety constraints
+## 📊 DATA FLOW
 
-**Risk Factors Evaluated**:
-1. **Confidence Threshold**: Below 60% = high risk
-2. **Volatility**: Bollinger width >15% = high risk
-3. **Extreme Indicators**: RSI >85 or <15 = high risk
-4. **Mixed Signals**: Multiple contradictions = moderate risk
-5. **Time Horizon**: Short-term disabled in MVP = critical risk
-6. **Market Context**: Individual stock only = low risk (reminder)
+```
+Yahoo Finance (5-min candles)
+      ↓
+Data Layer (fetch VWAP, volume, index)
+      ↓
+Method Layer (detect: Weak Trend, Extended Move, Portfolio Risk)
+      ↓
+Regime MCP (label: INDEX_LED_MOVE, LOW_LIQUIDITY_CHOP, etc.)
+      ↓
+Language Layer (plain English: "looks weak", "risk rising")
+      ↓
+Frontend (Today's Watch → Stock Detail)
+```
 
-**Actionability Logic**:
-- Neutral signals → never actionable
-- Critical risk → never actionable
-- High risk → aggressive users only
-- Moderate risk → moderate/aggressive users
-- Low risk → all users
+**NO NEWS APIs**. **NO ML**. **NO PREDICTIONS**.
 
-**User Risk Profiles**:
-- **Conservative**: Only low-risk signals
-- **Moderate**: Low + moderate risk
-- **Aggressive**: All except critical
+---
 
-**Constraints Applied**:
-- Confidence never >95%
-- Mandatory disclaimers
-- Position sizing reminders
-- Independent verification requirement
+## 🔍 CORE METHOD: VWAP + VOLUME
 
-**Interface**:
-```python
-def assess_risk(
-    signal: Signal,
-    indicators: TechnicalIndicators,
-    user_risk_tolerance: str
-) -> RiskAssessment
+### Method A: Trend Stress Detection
+Triggers when ≥2 conditions met:
+- Price below VWAP
+- Underperforms index by >1%
+- Red candles with volume
+- Below moving averages
+
+**Output**: `WEAK_TREND` tag
+
+### Method B: Mean Reversion Detection
+Triggers when ≥2 conditions met:
+- Sharp move >2% intraday
+- RSI extreme (<30 or >70)
+- Near support/resistance
+
+**Output**: `EXTENDED_MOVE` tag
+
+### Method C: Portfolio Risk Detection
+Triggers when ≥1 condition met:
+- Position >25% of portfolio
+- Multiple large holdings
+- Driving >40% of daily P&L
+
+**Output**: `PORTFOLIO_RISK` tag
+
+---
+
+## 🧠 MARKET REGIME CONTEXT (MCP)
+
+**NOT news scraping**. Just regime labels based on data patterns.
+
+### Regime Labels:
+- `INDEX_LED_MOVE` - Moving with Nifty/BankNifty
+- `LOW_LIQUIDITY_CHOP` - Dry volume, no direction
+- `POST_LUNCH_VOLATILITY` - After 1:30 PM IST
+- `EXPIRY_PRESSURE` - Near monthly expiry
+- `SECTOR_BASKET_MOVE` - Sectoral rotation
+- `PRE_MARKET_GAP` - Gap up/down at open
+- `LAST_HOUR_VOLATILITY` - 2:30-3:30 PM IST
+
+### Determined Using:
+- Time of day (9:15 AM, 1:30 PM, 2:30 PM IST)
+- Index correlation (^NSEI, ^NSEBANK)
+- Volume patterns (expansion, dry, normal)
+- Volatility expansion (Bollinger width, ATR)
+
+**NO external news**. **NO sentiment APIs**.
+
+---
+
+## 🗂️ MODULE STRUCTURE
+
+```
+backend/
+├── app/
+│   ├── core/
+│   │   ├── intraday/           ⭐ CORE SYSTEM
+│   │   │   ├── data_layer.py       (fetch 5-min candles)
+│   │   │   ├── method_layer.py     (VWAP+Volume detection)
+│   │   │   ├── regime_mcp.py       (regime labels)
+│   │   │   └── language_layer.py   (plain English)
+│   │   │
+│   │   ├── indicators/         (RSI, VWAP, SMA, EMA, MACD)
+│   │   ├── auth/               (JWT authentication)
+│   │   └── context_agent/      (simplified regime provider)
+│   │
+│   ├── mcp/                    (Yahoo Finance only)
+│   │   ├── factory.py
+│   │   └── yahoo_fundamentals.py
+│   │
+│   ├── api/v1/                 (REST endpoints)
+│   │   ├── intraday_routes.py   ⭐ PRIMARY API
+│   │   ├── portfolio.py
+│   │   └── auth.py
+│   │
+│   └── config/
+│       └── settings.py         (INTRADAY_MODE=True)
+│
+frontend/
+├── app/
+│   └── dashboard/
+│       ├── page.tsx            (redirect to intraday)
+│       ├── intraday/           ⭐ PRIMARY UI
+│       │   └── page.tsx        (Today's Watch)
+│       └── portfolio/
+│
+tests/
+└── test_indicators.py          ✅ All passing
 ```
 
 ---
 
-#### 5. Explanation Generator (`explanation/`)
-**Purpose**: Transform technical signals into human-readable insights
+## 🔌 DATA PROVIDERS
 
-**Output Components**:
-- **Summary**: Plain-language overview (2-3 sentences)
-- **Key Points**: Bullet list (6-8 points with emojis)
-- **Recommendation**: consider/monitor/avoid/no_action
-- **Overall Confidence**: Risk-adjusted confidence
+### Current:
+- **Yahoo Finance** - Free, unlimited, Indian & US stocks
+  - Intraday OHLCV (5/15-min candles)
+  - Fundamentals (PE, ROE, market cap)
+  - Index data (^NSEI, ^NSEBANK)
 
-**Language Guidelines**:
-- No jargon unless necessary
-- Always probabilistic ("may", "suggests", "indicates")
-- Never guaranteed ("will", "must", "certain")
-- Acknowledge uncertainty
+### Removed (Jan 7, 2026):
+- ❌ Alpha Vantage (rate limited, 25 req/day)
+- ❌ Twelve Data (Indian stocks paywalled)
+- ❌ News APIs (Moneycontrol, Reuters, RSS)
 
-**Recommendation Logic**:
-```
-if neutral → no_action
-if not actionable → monitor or avoid
-if critical/high risk → avoid
-if confidence ≥ 70% and actionable → consider
-else → monitor
-```
-
-**Interface**:
-```python
-def generate_insight(
-    signal: Signal,
-    risk_assessment: RiskAssessment,
-    indicators: TechnicalIndicators,
-    time_horizon: TimeHorizon
-) -> Insight
-```
+### Why Yahoo Only?
+- Free forever
+- No rate limits
+- Indian stock support
+- Good enough for personal use
 
 ---
 
-#### 6. Orchestrator (`orchestrator/`)
-**Purpose**: Coordinate the entire analysis pipeline
+## 🛡️ RISK CONSTRAINTS
 
-**Pipeline Steps**:
-1. Validate ticker
-2. Fetch market data
-3. Calculate indicators (requires 50+ days)
-4. Generate signal
-5. Assess risk
-6. Generate explanations
-7. Package insight
+### Hard Limits:
+- ✅ **Max Confidence: 95%** (epistemic humility)
+- ✅ **Min Actionable: 60%** (below that = "no edge")
+- ✅ **No predictions** ("will hit", "target price" forbidden)
+- ✅ **No directives** ("buy now", "sell immediately" forbidden)
 
-**Error Handling**:
-- Invalid ticker → 400 error
-- Insufficient data → informative message
-- Calculation errors → graceful degradation
-- Processing time tracked
-
-**Interface**:
-```python
-async def analyze_stock(request: AnalysisRequest) -> AnalysisResponse
-```
+### Language Rules:
+✅ **Use**: "looks weak", "may increase", "if price stays below"
+❌ **Never**: "buy", "sell", "now", "immediately", "will", "guaranteed"
 
 ---
 
-## API Layer
+## 📱 UI DESIGN PRINCIPLES
 
-### Endpoints
+### Primary Workflow:
+1. **Login** → See Today's Watch immediately
+2. **Today's Watch** → 3-7 stocks with:
+   - Regime label
+   - Bias: Favorable / Risky / No Edge
+   - One-line explanation
+3. **Stock Detail** → VWAP, volume, regime, risk note
 
-#### `POST /api/v1/stocks/analyze`
-Main analysis endpoint
+### NOT Included:
+- ❌ Multi-tab dashboards
+- ❌ Deep analysis pages by default
+- ❌ Excessive charts
+- ❌ Long-term scenario analysis
 
-**Request**:
-```json
-{
-  "ticker": "AAPL",
-  "time_horizon": "long_term",
-  "risk_tolerance": "moderate",
-  "lookback_days": 90
-}
-```
-
-**Response**: Complete `Insight` object
-
-#### `GET /api/v1/stocks/supported-tickers`
-Returns mock tickers (MVP only)
-
-#### `GET /health`
-Health check
-
-#### `GET /`
-API info + disclaimer
+### Design Goal:
+Answer "Should I care?" in **10 seconds**.
 
 ---
 
-## Data Models (Pydantic)
+## 🧪 TESTING STRATEGY
 
-### Key Models
-- `StockPrice`: OHLCV data point
-- `MarketData`: Complete stock data package
-- `TechnicalIndicators`: Calculated indicator values
-- `Signal`: Trading signal with reasoning
-- `RiskAssessment`: Risk evaluation results
-- `Insight`: Complete analysis package
+### Unit Tests:
+- `test_indicators.py` - RSI, VWAP, SMA calculations ✅
+- `test_signals.py` - Signal generation logic ✅
+- `test_intraday_system.py` - Method detection ⏳
 
-### Validation
-- Price values > 0
-- High ≥ Low, Open, Close
-- RSI bounded [0, 100]
-- Confidence bounded [0, 1]
-- Ticker pattern: 1-5 uppercase letters
+### Integration Tests:
+- Intraday API endpoints
+- Portfolio P&L calculation
+- Auth flow
 
----
-
-## Testing Strategy
-
-### Unit Tests
-- `test_indicators.py`: Indicator calculations
-- `test_signals.py`: Signal generation logic
-- `test_risk.py`: Risk assessment rules
-
-### Test Approach
-- Mock data for reproducibility
-- Boundary condition testing
-- Edge case coverage (extreme values)
-- Integration tests (pipeline)
-
-### Run Tests
-```bash
-cd backend
-pytest tests/ -v
-```
+### Manual Testing:
+- UI flow: Login → Today's Watch → Detail
+- Language compliance (no forbidden words)
+- Regime label accuracy
 
 ---
 
-## Configuration
+## 🔒 SECURITY & COMPLIANCE
 
-### Settings (`config/settings.py`)
-- API version and prefix
-- Risk thresholds
-- Default parameters
-- Feature flags (short-term disabled)
-- Disclaimers
+### Personal Use Only:
+- ⚠️ **NOT SEBI-compliant** for distribution
+- ⚠️ **NOT financial advice** (decision support)
+- ⚠️ **Read-only** (no trade execution)
 
-### Environment Variables
-See `.env.example`
-
----
-
-## Deployment Considerations
-
-### MVP Deployment
-- Single server sufficient
-- No database required (stateless)
-- Can run on Heroku/Railway/Render
-- Docker-ready
-
-### Production Requirements
-- Load balancer
-- Redis for caching
-- PostgreSQL for audit logs
-- Real-time data streaming
-- Rate limiting
-- Authentication/Authorization
-
-### Scalability
-- Stateless design = horizontal scaling
-- Cache indicator calculations
-- Async processing for bulk requests
-- WebSocket for real-time updates
+### Authentication:
+- JWT-based tokens (15-min expiry)
+- Supabase backend (PostgreSQL + RLS)
+- User-specific portfolio isolation
 
 ---
 
-## Security & Compliance
+## 📈 SCALABILITY
 
-### MVP Considerations
-- Read-only by design
-- No user data stored
-- No PII collected
-- Disclaimer on all responses
+### Current Capacity:
+- **1 user** (you)
+- **10-20 stocks** monitored
+- **~100 API calls/day** to Yahoo Finance
+- **Local deployment** (no cloud costs)
 
-### Production Requirements
-- User authentication
-- Audit logging
-- Rate limiting (prevent abuse)
-- HTTPS only
-- Data encryption at rest
-- Compliance review (FINRA, SEC)
-
-### Legal Disclaimers
-- Not financial advice
-- No guarantees of accuracy
-- Past performance ≠ future results
-- User assumes all risk
+### Not Designed For:
+- ❌ Multiple users
+- ❌ High-frequency trading
+- ❌ Institutional scale
+- ❌ Real-time tick data
 
 ---
 
-## Future Enhancements
+## 🚀 DEPLOYMENT
 
-### Phase 2
-- Real market data integration
-- User accounts and portfolios
-- Historical backtest results
-- Email/SMS alerts
+### Current:
+- **Backend**: Local (`http://localhost:8000`)
+- **Frontend**: Local (`http://localhost:3000`)
+- **Database**: Supabase (cloud)
 
-### Phase 3
-- Machine learning signal refinement
-- News sentiment analysis
-- Sector/market correlation
-- Options analysis
+### Production-Ready For:
+- Personal use on local machine
+- Single-user deployment
+- VPS hosting (optional)
 
-### Phase 4
-- Multi-asset support (crypto, forex)
-- Portfolio optimization
-- Paper trading simulator
-- Social features (shared insights)
+### NOT Ready For:
+- Public SaaS
+- Multi-tenant deployment
+- High-availability requirements
 
 ---
 
-## Maintenance
+## 🔮 FUTURE ENHANCEMENTS
 
-### Monitoring
-- API response times
-- Error rates
-- Signal accuracy (backtest)
-- User feedback
+### Maybe Later:
+- Mobile app (React Native)
+- Real-time WebSocket updates
+- Backtesting engine
+- More technical patterns (head & shoulders, triangles)
 
-### Updates
-- Indicator library expansion
-- Risk rule refinement
-- Model retraining (if ML added)
-- Market data source rotation
-
----
-
-## Development Guidelines
-
-### Code Style
-- Black formatter
-- Flake8 linting
-- Type hints everywhere
-- Docstrings for public methods
-
-### Git Workflow
-- Feature branches
-- PR reviews required
-- Semantic versioning
-- Changelog maintained
-
-### Documentation
-- Inline comments for complex logic
-- Module docstrings
-- API documentation (OpenAPI)
-- Architecture updates (this doc)
+### NOT Planned:
+- News scraping (removed by design)
+- ML predictions (deterministic only)
+- Automated trading (legal risk)
+- Multi-market expansion (focus)
 
 ---
 
-## Questions for Phase 2
+## 💡 DESIGN DECISIONS
 
-1. Which real market data provider to integrate?
-2. Should we add user authentication?
-3. Database for storing analysis history?
-4. Caching strategy for indicators?
-5. Rate limiting approach?
-6. Frontend framework choice?
-7. Deployment platform?
-8. Compliance review requirements?
+### Why VWAP + Volume Only?
+- Deterministic, reproducible
+- Works on 1-day timeframe
+- No history needed
+- Testable with clear pass/fail
+
+### Why No News?
+- News = opinions = unreliable
+- Regime labels sufficient
+- Reduces complexity
+- Fewer dependencies
+
+### Why Intraday-First?
+- Original goal: small daily profits
+- Matches user's actual usage
+- Honest positioning
+- Better than pretending to be long-term platform
+
+---
+
+## ✅ SYSTEM STRENGTHS
+
+1. **Transparent** - No black boxes, every rule visible
+2. **Testable** - Deterministic thresholds, reproducible
+3. **Fast** - Answers in seconds, not minutes
+4. **Focused** - Does one thing well (intraday detection)
+5. **Honest** - Matches real use case
+6. **Maintainable** - Simple codebase, easy to debug
+7. **Free** - No API costs, Yahoo Finance only
+
+---
+
+## ⚠️ SYSTEM LIMITATIONS
+
+1. **Personal use only** - Not SEBI-compliant for distribution
+2. **Delayed data** - 15-min delay typical (free tier)
+3. **Intraday-focused** - Not for long-term investing
+4. **Indian markets** - Optimized for NSE/BSE
+5. **No automation** - Manual execution required
+6. **Single user** - Not multi-tenant
+7. **No real-time** - WebSocket not implemented
+
+---
+
+## 📖 RELATED DOCS
+
+- `INTRADAY_QUICK_REFERENCE.md` - Quick command reference
+- `REFACTORING_SUMMARY_JAN7.md` - What changed today
+- `README.md` - Setup instructions
+
+---
+
+**Last Updated**: January 7, 2026
+**Status**: Production-ready for personal use
+**Philosophy**: Simple > Complex, Honest > Impressive

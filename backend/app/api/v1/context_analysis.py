@@ -172,13 +172,14 @@ async def context_agent_status():
     ```
     """
     
-    from app.core.context_agent.mcp_fetcher import MCPContextFetcher
+    from app.mcp.legacy_adapter import get_legacy_adapter
     
-    fetcher = MCPContextFetcher()
+    adapter = get_legacy_adapter()
     
     return {
         "mcp_enabled": settings.MCP_ENABLED,
         "mcp_timeout_seconds": settings.MCP_TIMEOUT_SECONDS,
-        "approved_sources": fetcher.approved_sources,
+        "approved_sources": ["alpha_vantage", "twelve_data", "yahoo_finance"],
+        "mcp_version": "2.0",
         "status": "operational" if settings.MCP_ENABLED else "disabled"
     }

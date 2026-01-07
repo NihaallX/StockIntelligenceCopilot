@@ -1,5 +1,9 @@
 """Unit tests for Market Context Agent
 
+⚠️ DEPRECATED: Many tests use old RSS-based MCP fetcher.
+   New MCP V2 uses real data providers (Alpha Vantage, Twelve Data, Yahoo Finance).
+   See: test_mcp_real_data.py for current integration tests.
+
 Tests:
 1. Normal case with valid input
 2. No sources found
@@ -22,7 +26,8 @@ from app.core.context_agent import (
     ContextEnrichmentOutput,
     SupportingPoint
 )
-from app.core.context_agent.mcp_fetcher import MCPContextFetcher
+# Old import - tests will need updating for new MCP system
+# from app.core.context_agent.mcp_fetcher import MCPContextFetcher
 
 
 class TestMarketContextAgent:

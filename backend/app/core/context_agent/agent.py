@@ -1,222 +1,146 @@
-"""Market Context Agent - Core implementation
+"""Market Regime Context Provider (Intraday-First)
 
-READ-ONLY context enrichment layer.
-Does NOT generate signals, predictions, or recommendations.
+SIMPLIFIED: Returns regime labels only.
+NO news scraping. NO predictions. NO signal modification.
 """
 
 import logging
-import hashlib
-import json
 from typing import Optional
 from datetime import datetime
 
-from .models import (
-    ContextEnrichmentInput,
-    ContextEnrichmentOutput,
-    SupportingPoint,
-    SafeContextOutput
-)
-from .mcp_fetcher import MCPContextFetcher
-from app.core.cache import cache_manager
+from .models import RegimeContextOutput, MarketContext
+from app.mcp.factory import get_mcp_provider, MarketRegimeContext as FactoryRegimeContext
 
 logger = logging.getLogger(__name__)
 
 
-class MarketContextAgent:
+class MarketRegimeProvider:
     """
-    Market Context Agent - MCP-based context enrichment
+    Provides market regime context based ONLY on:
+    - Time of day
+    - Index correlation  
+    - Volume patterns
+    - Volatility expansion
     
-    This agent is READ-ONLY and EXPLANATORY.
-    It accepts structured opportunity objects and enriches them with real-world
-    market context from reputable sources.
-    
-    HARD CONSTRAINTS:
-    - Does NOT generate buy/sell recommendations
-    - Does NOT predict prices or timing
-    - Does NOT alter opportunity type, confidence, or risk
-    - Does NOT invent data
-    - Does NOT run if no opportunity object is provided
-    
-    Usage:
-        agent = MarketContextAgent(enabled=True)
-        context = await agent.enrich_opportunity(input_data)
+    NO news. NO opinions. Just regime labels.
     """
     
-    def __init__(self, enabled: bool = False):
+    def __init__(self, enabled: bool = True):
         """
-        Initialize the Market Context Agent
+        Initialize regime provider
         
         Args:
-            enabled: Whether MCP context fetching is enabled (default: False)
+            enabled: Whether regime detection is enabled (default: True)
         """
         self.enabled = enabled
-        self.mcp_fetcher = MCPContextFetcher() if enabled else None
+        self.mcp_factory = get_mcp_provider() if enabled else None
         
-        logger.info(
-            f"Market Context Agent initialized: "
-            f"enabled={enabled}"
-        )
+        logger.info(f"Market Regime Provider initialized: enabled={enabled}")
     
-    async def enrich_opportunity(
+    async def get_regime_context(
         self,
-        input_data: ContextEnrichmentInput,
-        use_cache: bool = True,
-        cache_ttl: int = 300  # 5 minutes default
-    ) -> ContextEnrichmentOutput:
+        ticker: str,
+        timeframe: str = "INTRADAY"
+    ) -> RegimeContextOutput:
         """
-        Enrich an opportunity with market context (with caching)
-        
-        This method:
-        1. Validates input (opportunity must be provided)
-        2. Checks cache for recent results (if use_cache=True)
-        3. Uses MCP to fetch real-world context if cache miss
-        4. Caches results with TTL
-        5. Returns context WITH CITATIONS
-        6. Returns safe fallback if MCP fails
+        Get current market regime for a ticker.
         
         Args:
-            input_data: Structured input with opportunity and ticker info
-            use_cache: Whether to use/store cache (default: True)
-            cache_ttl: Cache time-to-live in seconds (default: 300 = 5min)
-        
+            ticker: Stock symbol (e.g., "RELIANCE.NS")
+            timeframe: INTRADAY or DAILY
+            
         Returns:
-            ContextEnrichmentOutput with market context and citations
+            RegimeContextOutput with regime label and explanation
         """
         
-        # Validation: opportunity must be provided
-        if not input_data.opportunity:
-            logger.warning("No opportunity provided - returning safe output")
-            return self._safe_output(mcp_status="failed")
+        if not self.enabled or not self.mcp_factory:
+            return self._neutral_regime()
         
-        # If MCP is disabled, return safe output immediately
-        if not self.enabled or not self.mcp_fetcher:
-            logger.info("MCP context enrichment disabled - skipping")
-            return self._safe_output(mcp_status="disabled")
-        
-        # Generate signal hash for cache key
-        signal_hash = self._generate_signal_hash(input_data)
-        cache_key = f"mcp_context:{input_data.ticker}:{signal_hash}"
-        
-        # Check cache first (if enabled)
-        if use_cache:
-            cached_context = cache_manager.get(cache_key)
-            if cached_context:
-                logger.info(f"✅ MCP cache HIT for {input_data.ticker} (hash: {signal_hash[:8]})")
-                return cached_context
-            else:
-                logger.debug(f"MCP cache MISS for {input_data.ticker}")
-        
-        # Attempt to fetch context via MCP
         try:
-            logger.info(
-                f"Fetching market context for {input_data.ticker} "
-                f"(horizon: {input_data.time_horizon}, signal: {input_data.signal_type})"
+            # Build regime context from MCP factory
+            regime_context: FactoryRegimeContext = await self.mcp_factory.build_market_regime_context(
+                ticker=ticker
             )
             
-            context = await self.mcp_fetcher.fetch_context(
-                ticker=input_data.ticker,
-                market=input_data.market,
-                time_horizon=input_data.time_horizon,
-                signal_type=input_data.signal_type,
-                signal_reasons=input_data.signal_reasons,
-                confidence=input_data.confidence
+            # Map to simplified output
+            regime_label = self._determine_regime_label(regime_context)
+            explanation = self._generate_explanation(regime_context)
+            
+            return RegimeContextOutput(
+                regime_label=regime_label,
+                explanation=explanation,
+                index_alignment=regime_context.index_alignment,
+                volume_state=regime_context.volume_state,
+                volatility_state=regime_context.volatility_state,
+                time_of_day=regime_context.time_regime,
+                timestamp=regime_context.timestamp
             )
-            
-            # Validate that we got usable context
-            if not context.supporting_points:
-                logger.warning(
-                    f"No supporting points found for {input_data.ticker} - "
-                    f"returning safe output"
-                )
-                return self._safe_output(mcp_status="partial")
-            
-            logger.info(
-                f"✅ Context enrichment successful: "
-                f"{len(context.supporting_points)} points from "
-                f"{len(context.data_sources_used)} sources"
-            )
-            
-            # Cache the result
-            if use_cache:
-                cache_manager.set(cache_key, context, ttl=cache_ttl)
-                logger.debug(f"Cached MCP result for {input_data.ticker} (TTL: {cache_ttl}s)")
-            
-            return context
             
         except Exception as e:
-            logger.error(
-                f"Context enrichment failed for {input_data.ticker}: {e}",
-                exc_info=True
-            )
-            return self._safe_output(mcp_status="failed")
+            logger.warning(f"Failed to fetch regime context: {e}")
+            return self._neutral_regime()
     
-    def _safe_output(
-        self,
-        mcp_status: str = "disabled"
-    ) -> ContextEnrichmentOutput:
-        """
-        Return safe fallback output when MCP fails or is disabled
+    def _determine_regime_label(self, context: FactoryRegimeContext) -> str:
+        """Determine primary regime label from context"""
         
-        Args:
-            mcp_status: Status to include in output
+        # Priority: volatility > volume > index > time
+        if context.volatility_state == "expanding":
+            return "VOLATILITY_EXPANSION"
+        elif context.volume_state == "expansion":
+            return "VOLUME_BREAKOUT"
+        elif context.volume_state == "dry":
+            return "LOW_LIQUIDITY_CHOP"
+        elif context.index_alignment == "aligned":
+            return "INDEX_LED_MOVE"
+        elif context.index_alignment == "diverging":
+            return "STOCK_SPECIFIC_MOVE"
+        elif context.time_regime == "open":
+            return "OPENING_VOLATILITY"
+        elif context.time_regime == "close":
+            return "CLOSING_PRESSURE"
+        else:
+            return "NEUTRAL_REGIME"
+    
+    def _generate_explanation(self, context: FactoryRegimeContext) -> str:
+        """Generate plain-English explanation"""
         
-        Returns:
-            ContextEnrichmentOutput with safe defaults
-        """
-        return ContextEnrichmentOutput(
-            context_summary="No additional market context available at this time.",
-            supporting_points=[],
-            data_sources_used=[],
-            disclaimer="Informational only. Not financial advice.",
-            enriched_at=datetime.utcnow(),
-            mcp_status=mcp_status
+        parts = []
+        
+        # Volume
+        if context.volume_state == "expansion":
+            parts.append("Volume is expanding")
+        elif context.volume_state == "dry":
+            parts.append("Volume is low")
+        
+        # Index
+        if context.index_alignment == "aligned":
+            parts.append("moving with index")
+        elif context.index_alignment == "diverging":
+            parts.append("diverging from index")
+        
+        # Volatility
+        if context.volatility_state == "expanding":
+            parts.append("volatility rising")
+        elif context.volatility_state == "compressed":
+            parts.append("volatility compressed")
+        
+        if not parts:
+            return "No clear pattern right now."
+        
+        return f"{', '.join(parts)}."
+    
+    def _neutral_regime(self) -> RegimeContextOutput:
+        """Return neutral regime when disabled or failed"""
+        return RegimeContextOutput(
+            regime_label="NEUTRAL_REGIME",
+            explanation="No regime context available.",
+            index_alignment="neutral",
+            volume_state="normal",
+            volatility_state="normal",
+            time_of_day="unknown",
+            timestamp=datetime.utcnow()
         )
-    
-    def _generate_signal_hash(self, input_data: ContextEnrichmentInput) -> str:
-        """
-        Generate hash of signal for cache invalidation
-        
-        Hash includes:
-        - Ticker
-        - Signal type
-        - Signal reasons
-        - Confidence (rounded to 2 decimals)
-        
-        This ensures cache is invalidated when signal changes.
-        
-        Args:
-            input_data: Input data to hash
-        
-        Returns:
-            SHA256 hash (first 16 chars)
-        """
-        hash_content = {
-            "ticker": input_data.ticker,
-            "signal_type": input_data.signal_type,
-            "signal_reasons": sorted(input_data.signal_reasons),  # Sort for consistency
-            "confidence": round(input_data.confidence, 2)
-        }
-        
-        hash_string = json.dumps(hash_content, sort_keys=True)
-        hash_obj = hashlib.sha256(hash_string.encode())
-        return hash_obj.hexdigest()[:16]  # First 16 chars is enough
-    
-    def validate_input(self, input_data: ContextEnrichmentInput) -> bool:
-        """
-        Validate input data
-        
-        Args:
-            input_data: Input to validate
-        
-        Returns:
-            True if valid, False otherwise
-        """
-        if not input_data.opportunity:
-            logger.warning("Validation failed: No opportunity provided")
-            return False
-        
-        if not input_data.ticker:
-            logger.warning("Validation failed: No ticker provided")
-            return False
-        
-        return True
+
+
+# Legacy alias for backward compatibility
+MarketContextAgent = MarketRegimeProvider

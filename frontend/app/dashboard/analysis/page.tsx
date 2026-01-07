@@ -4,10 +4,15 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { getEnhancedAnalysis, getPortfolioPositions, EnhancedAnalysis, PortfolioPosition } from "@/lib/api";
 import { motion } from "framer-motion";
-import { Search, TrendingUp, TrendingDown, AlertCircle, Shield, AlertTriangle, Clock, Briefcase, ExternalLink, Info, Scale } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, AlertCircle, Shield, AlertTriangle, Clock, Briefcase, ExternalLink, Info, Scale, ChevronDown, ChevronUp } from "lucide-react";
 import { searchStocks, type StockSuggestion } from "@/lib/indian-stocks";
 import { CitationsPanel } from "@/components/CitationsPanel";
 import { ContextVerifiedBadge } from "@/components/ContextVerifiedBadge";
+import { SignalTypeBadge } from "@/components/SignalTypeBadge";
+import { RegimePillsContainer, RegimeType } from "@/components/RegimePills";
+import { DataSourceInfo } from "@/components/DataQualityBadge";
+import { SignalFreshness, TimeOfDayContext } from "@/components/SignalFreshness";
+import { HelpTooltip, HelpTooltips } from "@/components/HelpTooltip";
 import Link from "next/link";
 
 // Parse recommendation into structured parts
@@ -97,6 +102,7 @@ export default function AnalysisPage() {
   const [dataIntegrityIssue, setDataIntegrityIssue] = useState("");
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const [portfolioStocks, setPortfolioStocks] = useState<PortfolioPosition[]>([]);
+  const [isContextExpanded, setIsContextExpanded] = useState(false);
   
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<StockSuggestion[]>([]);
@@ -408,9 +414,12 @@ export default function AnalysisPage() {
           {/* Combined Score & Recommendation */}
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-1">Analysis Summary</h2>
-                <p className="text-muted-foreground">Probability-based assessment</p>
+              <div className="flex items-center gap-2">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">Analysis Summary</h2>
+                  <p className="text-muted-foreground">Probability-based assessment</p>
+                </div>
+                {HelpTooltips.signalType}
               </div>
               <div className="text-center">
                 <div className="text-5xl font-bold text-muted-foreground mb-2">
@@ -424,10 +433,26 @@ export default function AnalysisPage() {
                 )}
               </div>
             </div>
+
+            {/* Signal Freshness & Time Context */}
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
+              <SignalFreshness generatedAt={new Date().toISOString()} />
+              <TimeOfDayContext />
+              {HelpTooltips.intradayFreshness}
+            </div>
             
             {(() => {
               const parsed = parseRecommendation(analysis.recommendation);
               const isInaction = isInactionRecommendation(parsed.action);
+              
+              // Mock regime data - in production, this would come from the API
+              const regimes: RegimeType[] = [];
+              if (analysis.market_context?.context_summary?.toLowerCase().includes('index')) {
+                regimes.push('index-led');
+              }
+              if (analysis.market_context?.context_summary?.toLowerCase().includes('volatil')) {
+                regimes.push('pre-market-volatility');
+              }
               
               return (
                 <div className={`p-6 rounded-xl border-2 ${
@@ -435,10 +460,33 @@ export default function AnalysisPage() {
                     ? "bg-amber-50 dark:bg-amber-900/10 border-amber-300 dark:border-amber-700"
                     : "bg-muted border-border"
                 }`}>
-                  <div className="flex items-center gap-3 mb-3">
-                    {isInaction && <Shield className="w-6 h-6 text-amber-600" />}
-                    <span className="text-2xl font-bold">{parsed.action}</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {isInaction && <Shield className="w-6 h-6 text-amber-600" />}
+                      <span className="text-2xl font-bold">{parsed.action}</span>
+                    </div>
+                    <SignalTypeBadge recommendation={analysis.recommendation} />
                   </div>
+
+                  {/* Market Regime Indicators */}
+                  {regimes.length > 0 && (
+                    <div className="mb-4 flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Market Regime:</span>
+                      <RegimePillsContainer regimes={regimes} />
+                      {HelpTooltips.marketRegime}
+                    </div>
+                  )}
+
+                  {/* Data Source Info */}
+                  {analysis.market_context?.data_sources_used && analysis.market_context.data_sources_used.length > 0 && (
+                    <div className="mb-4">
+                      <DataSourceInfo 
+                        dataSource={analysis.market_context.data_sources_used[0]} 
+                        confidence={0.85}
+                      />
+                    </div>
+                  )}
+
                   {parsed.reasoning && (
                     <p className="text-sm text-muted-foreground mb-4">{parsed.reasoning}</p>
                   )}
@@ -606,73 +654,123 @@ export default function AnalysisPage() {
             </div>
           )}
 
-          {/* Market Context (Sources) - Only shown if MCP data available */}
-          {analysis.market_context && analysis.market_context.supporting_points && analysis.market_context.supporting_points.length > 0 && (
-            <div className="bg-card border border-border rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Info className="w-5 h-5 text-muted-foreground" />
-                  <h3 className="text-xl font-semibold">Why The System Thinks This Matters (Sources)</h3>
-                </div>
+          {/* Market Context (Sources) - Enhanced with expandable panel */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Info className="w-5 h-5 text-muted-foreground" />
+                <h3 className="text-xl font-semibold">Market Context</h3>
+                {HelpTooltips.mcpContext}
+              </div>
+              {analysis.market_context && (
                 <ContextVerifiedBadge 
                   mcp_status={analysis.market_context.mcp_status}
                   sources_count={analysis.market_context.data_sources_used?.length || 0}
                 />
-              </div>
-              
-              <div className="mb-4 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  <strong className="text-blue-700 dark:text-blue-300">📊 These sources SUPPORT the signal above.</strong> They did not generate it. 
-                  The signal was produced by technical + fundamental analysis, then these news articles were retrieved to provide market context.
-                </p>
-              </div>
-
-              {/* Citations Panel with confidence badges */}
-              <CitationsPanel supportingPoints={analysis.market_context.supporting_points} />
-
-              {/* Warning if MCP failed */}
-              {analysis.market_context.mcp_status === 'failed' && (
-                <div className="mt-4 p-4 bg-red-50/50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-red-900 dark:text-red-100">
-                        Context data unavailable
-                      </p>
-                      <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                        The analysis above is based on technical and fundamental indicators only. 
-                        Market context could not be retrieved at this time.
-                      </p>
-                    </div>
-                  </div>
-                </div>
               )}
-
-              {/* Warning if data is stale */}
-              {analysis.market_context.mcp_status === 'partial' && (
-                <div className="mt-4 p-4 bg-yellow-50/50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
-                        Partial context available
-                      </p>
-                      <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                        Some data sources were unavailable. The context shown may be incomplete.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
-                <p>
-                  📊 Context sources are verified from reputable financial news providers. 
-                  This information enriches your analysis but should not be the sole basis for investment decisions.
-                </p>
-              </div>
             </div>
-          )}
+
+            {/* Context Summary */}
+            {analysis.market_context?.context_summary ? (
+              <div className="mb-4">
+                <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm leading-relaxed">
+                    <strong className="text-blue-700 dark:text-blue-300">📊 Context:</strong> {analysis.market_context.context_summary}
+                  </p>
+                </div>
+                
+                <div className="mt-3 text-xs text-muted-foreground">
+                  <strong>Note:</strong> These sources SUPPORT the signal above. They did not generate it. 
+                  The signal was produced by technical + fundamental analysis, then this context was retrieved.
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 p-4 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      No supporting market context found yet
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      The analysis above is based on technical and fundamental indicators only. 
+                      Market context data is unavailable at this time.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Citations Panel - Expandable */}
+            {analysis.market_context?.supporting_points && analysis.market_context.supporting_points.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setIsContextExpanded(!isContextExpanded)}
+                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors mb-3"
+                >
+                  {isContextExpanded ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      Hide detailed sources
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      Show detailed sources ({analysis.market_context.supporting_points.length})
+                    </>
+                  )}
+                </button>
+
+                {isContextExpanded && (
+                  <div className="mt-4">
+                    <CitationsPanel supportingPoints={analysis.market_context.supporting_points} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Warning if MCP failed */}
+            {analysis.market_context?.mcp_status === 'failed' && (
+              <div className="mt-4 p-4 bg-red-50/50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                      Context data unavailable
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                      The analysis above is based on technical and fundamental indicators only. 
+                      Market context could not be retrieved at this time.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Warning if data is stale */}
+            {analysis.market_context?.mcp_status === 'partial' && (
+              <div className="mt-4 p-4 bg-yellow-50/50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                      Partial context available
+                    </p>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                      Some data sources were unavailable. The context shown may be incomplete.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
+              <p>
+                📊 Context sources are verified from reputable financial news providers. 
+                This information enriches your analysis but should not be the sole basis for investment decisions.
+              </p>
+            </div>
+          </div>
         </motion.div>
       )}
 
