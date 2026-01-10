@@ -3,9 +3,15 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.api import api_router
+from app.middleware import (
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    InputSanitizationMiddleware
+)
 
 
 def validate_startup_config():
@@ -46,7 +52,24 @@ async def startup_event():
     validate_startup_config()
 
 
-# CORS middleware
+# Security Middleware (order matters - applied in reverse)
+# 1. Trusted Host - validate Host header
+if settings.ENVIRONMENT == "production":
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["stock-intelligence-copilot.vercel.app", "*.vercel.app"]
+    )
+
+# 2. Rate Limiting - prevent abuse
+app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
+
+# 3. Security Headers - XSS, clickjacking, etc.
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 4. Input Sanitization - validate and sanitize inputs
+app.add_middleware(InputSanitizationMiddleware)
+
+# 5. CORS middleware - must be last
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
