@@ -1,13 +1,6 @@
-"""Stock Intelligence Copilot - Main entry point"""
+"""Stock Intelligence Copilot - Main entry point for Vercel"""
 
-import uvicorn
 from app.main import app
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+# Export the app for Vercel
+# This allows Vercel to import the ASGI application directly
