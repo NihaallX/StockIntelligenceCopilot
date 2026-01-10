@@ -102,8 +102,24 @@ async def root():
 
 @app.get("/health", tags=["health"])
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "version": settings.VERSION
+    """Health check endpoint with diagnostic info"""
+    import os
+    
+    # Check critical environment variables
+    env_status = {
+        "SUPABASE_URL": "✓" if os.getenv("SUPABASE_URL") and "dummy" not in os.getenv("SUPABASE_URL", "") else "✗",
+        "SUPABASE_ANON_KEY": "✓" if os.getenv("SUPABASE_ANON_KEY") and "dummy" not in os.getenv("SUPABASE_ANON_KEY", "") else "✗",
+        "JWT_SECRET_KEY": "✓" if os.getenv("JWT_SECRET_KEY") and "your_super_secret" not in os.getenv("JWT_SECRET_KEY", "") else "✗",
+        "GROQ_API_KEY": "✓" if os.getenv("GROQ_API_KEY") and "dummy" not in os.getenv("GROQ_API_KEY", "") else "✗"
     }
+    
+    all_configured = all(v == "✓" for v in env_status.values())
+    
+    return {
+        "status": "healthy" if all_configured else "degraded",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "env_configured": env_status,
+        "message": "All systems operational" if all_configured else "⚠️ Environment variables not configured - see VERCEL_ENV_SETUP.md"
+    }
+
