@@ -13,7 +13,7 @@ from .explain import router as explain_router
 from .market_pulse import router as market_pulse_router
 from .opportunities import router as opportunities_router
 
-api_router = APIRouter()
+api_router = APIRouter(prefix="/v1")
 
 # Phase 2A: Authentication routes (public)
 api_router.include_router(auth_router, prefix="/auth", tags=["authentication"])
