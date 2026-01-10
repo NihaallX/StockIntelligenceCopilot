@@ -29,9 +29,9 @@ export function DashboardNav() {
   }, []);
 
   const navItems = [
+    { href: "/dashboard/intraday", label: "Today's Watch", icon: Activity },
     { href: "/dashboard/pulse", label: "Market Pulse", icon: Activity },
     { href: "/dashboard/opportunities", label: "Opportunities", icon: Eye },
-    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
     { href: "/dashboard/portfolio", label: "Portfolio", icon: Briefcase },
     { href: "/dashboard/analysis", label: "Analysis", icon: BarChart3 },
     { href: "/legal/disclaimer", label: "Legal", icon: Scale },
@@ -73,7 +73,7 @@ export function DashboardNav() {
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/dashboard/pulse" className="text-xl font-bold">
+            <Link href="/dashboard/intraday" className="text-xl font-bold">
               Stock Intelligence
             </Link>
             <div className="flex gap-1">

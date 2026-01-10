@@ -1,0 +1,57 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+env/
+
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.development
+.env.test
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (include in build)
+# But exclude large files
+archive_jan7/
+pytest-cache-files-*/

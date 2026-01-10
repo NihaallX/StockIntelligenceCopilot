@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, TrendingDown, AlertTriangle, Info } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { AlertCircle, TrendingDown, AlertTriangle, Info, HelpCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 
 interface TodaysWatchItem {
   ticker: string
@@ -15,22 +17,158 @@ interface TodaysWatchItem {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
+// VWAP explanation component
+function VWAPExplainer() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="mb-4">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+      >
+        <HelpCircle className="h-4 w-4" />
+        What is VWAP?
+      </button>
+      
+      {isOpen && (
+        <Card className="mt-2 border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-blue-900 mb-2">VWAP = Volume Weighted Average Price</h3>
+            <div className="text-sm text-blue-900 space-y-2">
+              <p>
+                <strong>Think of it as the "fair price"</strong> for a stock today based on where most trading happened.
+              </p>
+              
+              <div className="space-y-1 ml-4">
+                <p>• <strong>Price ABOVE VWAP</strong> → Stock is expensive right now (buyers are strong)</p>
+                <p>• <strong>Price AT VWAP</strong> → Stock is at fair value (decision point)</p>
+                <p>• <strong>Price BELOW VWAP</strong> → Stock is cheap right now (sellers are strong)</p>
+              </div>
+              
+              <p className="pt-2">
+                <strong>Why it matters:</strong> When price bounces off VWAP or breaks through it with high volume,
+                it often signals a good entry or exit opportunity.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+// Helper to simplify tags
+function simplifyTag(tag: string): string {
+  const tagMap: Record<string, string> = {
+    "vwap_bounce": "Bouncing at Fair Price",
+    "vwap_rejection": "Rejected at Fair Price",
+    "breakdown": "Breaking Down",
+    "breakout": "Breaking Up",
+    "high_volume": "High Trading Volume",
+    "weakness": "Showing Weakness",
+    "extended": "Overextended"
+  }
+  return tagMap[tag.toLowerCase()] || tag
+}
+
+// Helper to add actionable advice
+function getActionableAdvice(tags: string[], severity: string): string {
+  const hasBreakout = tags.some(t => t.toLowerCase().includes("breakout"))
+  const hasBounce = tags.some(t => t.toLowerCase().includes("bounce"))
+  const hasRejection = tags.some(t => t.toLowerCase().includes("rejection"))
+  const hasBreakdown = tags.some(t => t.toLowerCase().includes("breakdown"))
+  
+  if (severity === "alert") {
+    if (hasBreakdown) return "⚠️ Consider selling or avoiding - price is breaking down with volume"
+    if (hasRejection) return "⚠️ Watch carefully - price is being rejected at key level"
+    return "⚠️ Pay attention - significant move detected"
+  }
+  
+  if (severity === "caution") {
+    if (hasRejection) return "⚡ Wait and watch - sellers are pushing price down"
+    if (hasBreakout) return "⚡ Potential buy - price breaking above with strength"
+    return "⚡ Be cautious - mixed signals"
+  }
+  
+  // watch
+  if (hasBounce) return "👀 Could be entry point - price bouncing off support"
+  if (hasBreakout) return "👀 Shows strength - price breaking higher"
+  return "👀 Monitor - interesting setup forming"
+}
+
 export default function TodaysWatchDashboard() {
+  const { tokens, handleAuthError } = useAuth()
   const [watchList, setWatchList] = useState<TodaysWatchItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
 
+  // Auto-refresh every 5 minutes
   useEffect(() => {
-    fetchTodaysWatch()
-  }, [])
+    if (tokens?.access_token) {
+      fetchTodaysWatch()silent = false) => {
+    if (!tokens?.access_token) {
+      setError("Authentication required")
+      setLoading(false)
+      return
+    }
 
-  const fetchTodaysWatch = async () => {
     try {
-      setLoading(true)
+      if (silent) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
       setError(null)
 
-      const response = await fetch(`${API_URL}/api/v1/intraday/todays-watch?min_severity=watch`)
+      const response = await fetch(`${API_URL}/api/v1/intraday/todays-watch?min_severity=watch`, {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
+      })
       
+      if (response.status === 401) {
+        // Token expired or invalid
+        handleAuthError()
+        return
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      setWatchList(data)
+      setLastUpdated(new Date())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+      console.error("Error fetching today's watch:", err)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const handleManualRefresh = () => {
+    fetchTodaysWatch(true)
+  }
+
+  const formatLastUpdated = (date: Date | null) => {
+    if (!date) return "Never"
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    
+    if (diffMins < 1) return "Just now"
+    if (diffMins === 1) return "1 minute ago"
+    if (diffMins < 60) return `${diffMins} minutes ago`
+    
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours === 1) return "1 hour ago"
+    return `${diffHours} hours ago` 
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.statusText}`)
       }
@@ -67,7 +205,7 @@ export default function TodaysWatchDashboard() {
     }
   }
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <Card>
         <CardHeader>
@@ -91,20 +229,28 @@ export default function TodaysWatchDashboard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Today's Watch</CardTitle>
-          <CardDescription className="text-red-500">Error loading data</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Today's Watch</CardTitle>
+              <CardDescription className="text-red-500">Error loading data</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Try Again
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-red-600">
             <AlertCircle className="h-5 w-5" />
             <p>{error}</p>
           </div>
-          <button
-            onClick={fetchTodaysWatch}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Retry
-          </button>
         </CardContent>
       </Card>
     )
@@ -114,8 +260,27 @@ export default function TodaysWatchDashboard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Today's Watch</CardTitle>
-          <CardDescription>No significant patterns detected today</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Today's Watch</CardTitle>
+              <CardDescription>No significant patterns detected today</CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-gray-500">
+                Last checked: {formatLastUpdated(lastUpdated)}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Checking...' : 'Check Again'}
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-gray-500">
@@ -130,14 +295,52 @@ export default function TodaysWatchDashboard() {
 
   return (
     <div className="space-y-4">
+      {/* VWAP Education */}
+      <VWAPExplainer />
+      
       <Card>
         <CardHeader>
-          <CardTitle>Today's Watch</CardTitle>
-          <CardDescription>
-            Stocks flagged for weakness, extended moves, or portfolio risk
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Today's Watch</CardTitle>
+              <CardDescription>
+                Your stocks that need attention today - shown in simple language
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-gray-500">
+                Last updated: {formatLastUpdated(lastUpdated)}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+              <Button
+                variant={autoRefreshEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                title={autoRefreshEnabled ? "Auto-refresh ON (every 5 min)" : "Auto-refresh OFF"}
+                className="text-xs"
+              >
+                {autoRefreshEnabled ? '🔄 Auto' : '⏸️ Manual'}
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
+          {refreshing && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2 text-blue-700">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Updating data...</span>
+            </div>
+          )}
+          
           <div className="space-y-3">
             {watchList.map((item) => (
               <Link 
@@ -162,18 +365,26 @@ export default function TodaysWatchDashboard() {
                           {getSeverityBadge(item.severity)}
                         </div>
                         
-                        <div className="flex flex-wrap gap-2 mb-2">
+                        <div className="flex flex-wrap gap-2 mb-3">
                           {item.tags.map((tag, idx) => (
                             <span 
                               key={idx}
-                              className="text-sm px-2 py-1 bg-gray-100 rounded-md"
+                              className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium"
                             >
-                              {tag}
+                              {simplifyTag(tag)}
                             </span>
                           ))}
                         </div>
                         
-                        <p className="text-gray-700 text-sm">{item.one_line}</p>
+                        {/* Original description */}
+                        <p className="text-gray-700 text-sm mb-2">{item.one_line}</p>
+                        
+                        {/* Actionable advice in simple language */}
+                        <div className="bg-gray-50 border-l-2 border-blue-400 pl-3 py-2 text-sm">
+                          <p className="text-gray-800 font-medium">
+                            {getActionableAdvice(item.tags, item.severity)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -184,17 +395,17 @@ export default function TodaysWatchDashboard() {
         </CardContent>
       </Card>
 
-      {/* Disclaimer */}
+      {/* Simplified Disclaimer */}
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="p-4">
           <div className="flex gap-2 items-start">
             <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-blue-900">
-              <p className="font-semibold mb-1">Conditional Analysis Only</p>
+              <p className="font-semibold mb-1">📚 For Learning Only</p>
               <p>
-                This system detects patterns and provides context. It does not recommend 
-                trades or predict outcomes. All language is conditional ("if", "may") to 
-                support your decision-making process.
+                This system helps you understand what's happening with your stocks. 
+                It doesn't tell you to buy or sell - that decision is always yours. 
+                We show patterns and context to help you learn.
               </p>
             </div>
           </div>

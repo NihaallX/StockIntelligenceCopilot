@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
+import logging
 
 from app.core.intraday import (
     IntradayDataProvider,
@@ -17,9 +18,14 @@ from app.core.intraday import (
     MarketRegimeContext,
     LanguageFormatter
 )
+from app.api.dependencies import get_current_user
+from app.models.auth_models import User
+from app.core.database import get_db
+
+logger = logging.getLogger(__name__)
 
 
-router = APIRouter(prefix="/api/v1/intraday", tags=["intraday"])
+router = APIRouter(prefix="/intraday", tags=["intraday"])
 
 
 # Pydantic models for requests/responses
@@ -98,15 +104,16 @@ formatter = LanguageFormatter()
 @router.get("/todays-watch", response_model=List[TodaysWatchResponse])
 async def get_todays_watch(
     tickers: Optional[str] = None,
-    min_severity: str = "watch"
+    min_severity: str = "watch",
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get daily overview of flagged stocks.
+    Get daily overview of flagged stocks from user's portfolio.
     
     This is the homepage "Today's Watch" feature.
     
     Query params:
-    - tickers: Comma-separated list (e.g., "RELIANCE.NS,TCS.NS")
+    - tickers: Comma-separated list (overrides portfolio)
     - min_severity: Filter level ("watch", "caution", "alert")
     
     Returns list of flagged stocks sorted by severity.
@@ -116,11 +123,31 @@ async def get_todays_watch(
         if tickers:
             ticker_list = [t.strip() for t in tickers.split(",")]
         else:
-            # Default watchlist (could come from user portfolio)
-            ticker_list = [
-                "RELIANCE.NS", "TCS.NS", "INFY.NS", 
-                "HDFCBANK.NS", "ICICIBANK.NS"
-            ]
+            # Get tickers from user's portfolio
+            try:
+                logger.info(f"Fetching portfolio for user: {current_user.id}")
+                db = get_db()
+                portfolio_result = db.table("portfolio_positions").select("ticker").eq("user_id", current_user.id).execute()
+                
+                logger.info(f"Portfolio query result: {portfolio_result.data}")
+                
+                if portfolio_result.data and len(portfolio_result.data) > 0:
+                    # Extract unique tickers from portfolio
+                    ticker_list = list(set([p["ticker"] for p in portfolio_result.data]))
+                    logger.info(f"User {current_user.id}: Loaded {len(ticker_list)} tickers from portfolio: {ticker_list}")
+                else:
+                    # Fallback to default watchlist if portfolio is empty
+                    ticker_list = [
+                        "RELIANCE.NS", "TCS.NS", "INFY.NS", 
+                        "HDFCBANK.NS", "ICICIBANK.NS"
+                    ]
+                    logger.info(f"User {current_user.id}: Using default watchlist (empty portfolio)")
+            except Exception as db_error:
+                logger.error(f"Portfolio fetch failed: {db_error}", exc_info=True)
+                ticker_list = [
+                    "RELIANCE.NS", "TCS.NS", "INFY.NS", 
+                    "HDFCBANK.NS", "ICICIBANK.NS"
+                ]
         
         detections = []
         
