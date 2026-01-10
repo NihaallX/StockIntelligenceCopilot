@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, TrendingUp, TrendingDown, AlertCircle, Info, HelpCircle } from "lucide-react"
 import Link from "next/link"
 
@@ -249,7 +248,7 @@ export default function IntradayStockDetail() {
           <CardContent>
             <div className="flex flex-wrap gap-2 mb-3">
               {detail.context_badge.labels.map((label, idx) => (
-                <Badge key={idx} variant="secondary" className="bg-blue-100 text-blue-800">
+                <Badge key={idx} variant="info" className="bg-blue-100 text-blue-800">
                   {simplifyLabel(label)}
                 </Badge>
               ))}
