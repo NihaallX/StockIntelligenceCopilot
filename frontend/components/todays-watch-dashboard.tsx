@@ -109,7 +109,19 @@ export default function TodaysWatchDashboard() {
   // Auto-refresh every 5 minutes
   useEffect(() => {
     if (tokens?.access_token) {
-      fetchTodaysWatch()silent = false) => {
+      fetchTodaysWatch()
+    }
+
+    if (tokens?.access_token && autoRefreshEnabled) {
+      const interval = setInterval(() => {
+        fetchTodaysWatch(true) // true = silent refresh
+      }, 5 * 60 * 1000) // 5 minutes
+
+      return () => clearInterval(interval)
+    }
+  }, [tokens, autoRefreshEnabled])
+
+  const fetchTodaysWatch = async (silent = false) => {
     if (!tokens?.access_token) {
       setError("Authentication required")
       setLoading(false)
@@ -168,19 +180,7 @@ export default function TodaysWatchDashboard() {
     
     const diffHours = Math.floor(diffMins / 60)
     if (diffHours === 1) return "1 hour ago"
-    return `${diffHours} hours ago` 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      setWatchList(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error")
-      console.error("Error fetching today's watch:", err)
-    } finally {
-      setLoading(false)
-    }
+    return `${diffHours} hours ago`
   }
 
   const getSeverityIcon = (severity: string) => {
@@ -197,11 +197,11 @@ export default function TodaysWatchDashboard() {
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
       case "alert":
-        return <Badge variant="destructive">Alert</Badge>
+        return <Badge variant="error">Alert</Badge>
       case "caution":
-        return <Badge variant="default" className="bg-yellow-500">Caution</Badge>
+        return <Badge variant="warning" className="bg-yellow-500">Caution</Badge>
       default:
-        return <Badge variant="secondary">Watch</Badge>
+        return <Badge variant="info">Watch</Badge>
     }
   }
 
@@ -414,3 +414,4 @@ export default function TodaysWatchDashboard() {
     </div>
   )
 }
+
