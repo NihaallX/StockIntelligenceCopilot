@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, AlertCircle } from "lucide-react";
 import { login as apiLogin } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Header } from "@/components/ui/header";
@@ -14,20 +14,39 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
+
+  useEffect(() => {
+    // Check if redirected due to session expiration
+    if (searchParams.get('session_expired') === 'true') {
+      setSessionExpired(true);
+      setError("Your session has expired. Please log in again.");
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSessionExpired(false);
     setIsLoading(true);
 
     try {
       const response = await apiLogin(email, password);
       login(response.user, response.tokens);
-      router.push("/dashboard/pulse");
+      
+      // Check if there's a redirect path stored
+      const redirectPath = localStorage.getItem('redirect_after_login');
+      if (redirectPath) {
+        localStorage.removeItem('redirect_after_login');
+        router.push(redirectPath);
+      } else {
+        router.push("/dashboard/intraday");
+      }
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      setError(err.message || "Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
@@ -51,9 +70,20 @@ export default function LoginPage() {
 
         <div className="bg-card border border-border rounded-xl p-8 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
-                {error}
+            {sessionExpired && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-sm p-3 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Session Expired</p>
+                  <p className="text-xs mt-1">Your login session has expired. Please sign in again to continue.</p>
+                </div>
+              </div>
+            )}
+            
+            {error && !sessionExpired && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <p>{error}</p>
               </div>
             )}
 

@@ -17,12 +17,92 @@ import {
   X,
   AlertCircle,
   Inbox,
+  HelpCircle,
+  RefreshCw,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
+// Helper to simplify setup types
+function simplifySetupType(setupType: string): string {
+  const map: Record<string, string> = {
+    vwap_bounce: "Bouncing at Fair Price",
+    vwap_rejection: "Rejected at Fair Price",
+    breakout: "Breaking Above",
+    breakdown: "Breaking Down",
+    consolidation: "Holding Steady",
+  };
+  return map[setupType] || setupType;
+}
+
+// Helper to get beginner-friendly explanation
+function getBeginnerExplanation(opportunity: Opportunity): string {
+  const { setup_type, ticker, mcp_context } = opportunity;
+  
+  if (setup_type === "vwap_bounce") {
+    return `${ticker} dropped to its fair price and buyers stepped in. This could be a good entry point if you believe in the stock.`;
+  }
+  if (setup_type === "vwap_rejection") {
+    return `${ticker} tried to go higher but sellers pushed it back down at fair price. Be careful - sellers are in control.`;
+  }
+  if (setup_type === "breakout") {
+    return `${ticker} is breaking above its fair price with ${mcp_context.volume_ratio.toFixed(1)}x volume. Buyers are showing strength.`;
+  }
+  if (setup_type === "breakdown") {
+    return `${ticker} is falling below its fair price with high volume. Sellers are dominating - consider avoiding or exiting.`;
+  }
+  return `${ticker} is moving sideways near fair price. Wait for a clearer direction before acting.`;
+}
+
+// VWAP explainer component
+function OpportunitiesExplainer() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mb-6">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+      >
+        <HelpCircle className="h-4 w-4" />
+        What are these opportunities?
+      </button>
+      
+      {isOpen && (
+        <Card className="mt-2 border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-blue-900 mb-2">Similar Stocks You Don't Own Yet</h3>
+            <div className="text-sm text-blue-900 space-y-2">
+              <p>
+                Based on your portfolio, we found stocks that are <strong>similar</strong> to what you own 
+                (same sector, similar size, similar performance) but you don't own them yet.
+              </p>
+              
+              <p className="pt-2">
+                <strong>These are opportunities to consider</strong> if you want to diversify within familiar territory.
+              </p>
+              
+              <div className="space-y-1 ml-4 mt-2">
+                <p>• <strong>High confidence (80%+)</strong> → Strong, clear pattern</p>
+                <p>• <strong>Medium confidence (65-80%)</strong> → Good pattern, some risk</p>
+                <p>• <strong>"Immediate"</strong> → Act soon (hours)</p>
+                <p>• <strong>"Today"</strong> → Consider within trading day</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
 
 export default function OpportunitiesPage() {
   const { tokens } = useAuth();
   const router = useRouter();
   const [feed, setFeed] = useState<OpportunitiesFeed | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ignoredTickers, setIgnoredTickers] = useState<Set<string>>(new Set());
@@ -34,21 +114,55 @@ export default function OpportunitiesPage() {
     }
 
     fetchFeed();
-  }, [tokens]);
 
-  const fetchFeed = async () => {
+    // Auto-refresh every 5 minutes
+    if (autoRefreshEnabled) {
+      const interval = setInterval(() => {
+        fetchFeed(true); // true = silent refresh
+      }, 5 * 60 * 1000); // 5 minutes
+
+      return () => clearInterval(interval);
+    }
+  }, [tokens, autoRefreshEnabled]);
+
+  const fetchFeed = async (silent = false) => {
     if (!tokens?.access_token) return;
 
     try {
-      setIsLoading(true);
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       const data = await getOpportunitiesFeed(tokens.access_token);
       setFeed(data);
+      setLastUpdated(new Date());
       setError(null);
     } catch (err: any) {
       setError(err.message || "Failed to fetch opportunities");
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleManualRefresh = () => {
+    fetchFeed(true);
+  };
+
+  const formatLastUpdated = (date: Date | null) => {
+    if (!date) return "Never";
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return "Just now";
+    if (diffMins === 1) return "1 minute ago";
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return "1 hour ago";
+    return `${diffHours} hours ago`;
   };
 
   const handleIgnore = (ticker: string) => {
@@ -120,12 +234,14 @@ export default function OpportunitiesPage() {
           <p className="text-center text-red-900 dark:text-red-100 mb-4">
             {error || "Unable to fetch opportunities"}
           </p>
-          <button
-            onClick={fetchFeed}
-            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+          <Button
+            onClick={() => fetchFeed()}
+            disabled={isLoading}
+            className="w-full"
           >
-            Try Again
-          </button>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Retrying...' : 'Try Again'}
+          </Button>
         </div>
       </div>
     );
@@ -141,18 +257,43 @@ export default function OpportunitiesPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Opportunities Feed</h1>
+            <h1 className="text-3xl font-bold">New Stock Ideas</h1>
             <p className="text-muted-foreground">
-              {visibleOpportunities.length} actionable setups • {feed.total_scanned} tickers scanned
+              {visibleOpportunities.length} stocks similar to your portfolio • {feed.total_scanned} checked
             </p>
           </div>
-          <button
-            onClick={() => router.push("/dashboard/pulse")}
-            className="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition"
-          >
-            Back to Pulse
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-muted-foreground">
+              Last updated: {formatLastUpdated(lastUpdated)}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={refreshing || isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button
+              variant={autoRefreshEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+              title={autoRefreshEnabled ? "Auto-refresh ON (every 5 min)" : "Auto-refresh OFF"}
+            >
+              {autoRefreshEnabled ? '🔄 Auto' : '⏸️ Manual'}
+            </Button>
+          </div>
         </div>
+
+        <OpportunitiesExplainer />
+
+        {refreshing && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-blue-700">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Updating opportunities...</span>
+          </div>
+        )}
 
         {/* Empty State */}
         {visibleOpportunities.length === 0 && (
@@ -162,9 +303,9 @@ export default function OpportunitiesPage() {
             className="bg-card border border-border rounded-xl p-12 text-center"
           >
             <Inbox className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Clear Opportunities</h3>
+            <h3 className="text-xl font-semibold mb-2">No Clear Opportunities Right Now</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              No high-confidence setups match current market conditions. Standing down is a valid strategy.
+              We couldn't find any strong patterns in similar stocks. Sometimes waiting is the best strategy.
             </p>
             <button
               onClick={() => router.push("/dashboard/pulse")}
@@ -193,32 +334,45 @@ export default function OpportunitiesPage() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold">{opportunity.ticker}</h3>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {opportunity.setup_type.replace("_", " ")}
+                    <p className="text-sm text-muted-foreground">
+                      {simplifySetupType(opportunity.setup_type)}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => handleIgnore(opportunity.ticker)}
                   className="text-muted-foreground hover:text-foreground transition"
+                  title="Hide this stock"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Summary */}
-              <p className="text-sm mb-4 leading-relaxed">{opportunity.summary}</p>
+              {/* Beginner-friendly explanation */}
+              <div className="bg-blue-50 border-l-2 border-blue-400 p-3 mb-4 rounded">
+                <p className="text-sm text-blue-900">
+                  {getBeginnerExplanation(opportunity)}
+                </p>
+              </div>
+
+              {/* Original technical summary (collapsible or secondary) */}
+              <details className="mb-4">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                  Technical details
+                </summary>
+                <p className="text-sm mt-2 text-muted-foreground">{opportunity.summary}</p>
+              </details>
 
               {/* Metrics */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className={`px-3 py-2 rounded-lg border ${getConfidenceColor(opportunity.confidence)}`}>
-                  <div className="text-xs opacity-75">Confidence</div>
+                  <div className="text-xs opacity-75">How Sure Are We?</div>
                   <div className="text-lg font-bold">{opportunity.confidence}%</div>
                 </div>
                 <div className={`px-3 py-2 rounded-lg border ${getTimeSensitivityColor(opportunity.time_sensitivity)}`}>
                   <div className="text-xs opacity-75 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    Timing
+                    When to Act
                   </div>
                   <div className="text-sm font-semibold capitalize">
                     {opportunity.time_sensitivity.replace("_", " ")}
@@ -226,18 +380,18 @@ export default function OpportunitiesPage() {
                 </div>
               </div>
 
-              {/* MCP Context */}
+              {/* MCP Context - Simplified */}
               <div className="space-y-2 mb-4 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Price vs VWAP</span>
+                  <span className="text-muted-foreground">Price vs Fair Value</span>
                   <span className="font-medium">{opportunity.mcp_context.price_vs_vwap}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Volume</span>
-                  <span className="font-medium">{opportunity.mcp_context.volume_ratio.toFixed(1)}x avg</span>
+                  <span className="text-muted-foreground">Trading Activity</span>
+                  <span className="font-medium">{opportunity.mcp_context.volume_ratio.toFixed(1)}x normal</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Index Alignment</span>
+                  <span className="text-muted-foreground">Matches Market?</span>
                   <span className="font-medium">{opportunity.mcp_context.index_alignment}</span>
                 </div>
               </div>
