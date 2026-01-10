@@ -84,8 +84,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes
-app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+# Include API routes (no prefix - Vercel already routes /api/* here)
+app.include_router(api_router, prefix="")
 
 
 @app.get("/", tags=["root"])
