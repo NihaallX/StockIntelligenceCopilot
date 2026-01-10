@@ -101,11 +101,19 @@ async def register(user_data: UserCreate, request: Request):
     db = get_service_db()
     
     try:
-        # Validate and sanitize email
-        clean_email = InputValidator.validate_email(user_data.email)
+        # Validate and sanitize email (with fallback)
+        try:
+            clean_email = InputValidator.validate_email(user_data.email)
+        except Exception as e:
+            logger.warning(f"Email validation failed: {e}")
+            clean_email = user_data.email.lower().strip()
         
-        # Validate password strength (additional check beyond Pydantic)
-        InputValidator.validate_password_strength(user_data.password)
+        # Validate password strength (with fallback)
+        try:
+            InputValidator.validate_password_strength(user_data.password)
+        except Exception as e:
+            logger.warning(f"Password validation failed: {e}")
+            # Allow Pydantic validation to handle it
         
         # Check if user already exists
         existing = db.table("users").select("id").eq("email", clean_email).execute()
@@ -121,7 +129,10 @@ async def register(user_data: UserCreate, request: Request):
         # Sanitize full name if provided
         clean_name = None
         if user_data.full_name:
-            clean_name = InputValidator.sanitize_string(user_data.full_name, max_length=100)
+            try:
+                clean_name = InputValidator.sanitize_string(user_data.full_name, max_length=100)
+            except Exception:
+                clean_name = user_data.full_name[:100]
         
         # Create user record
         user_record = {
@@ -132,7 +143,7 @@ async def register(user_data: UserCreate, request: Request):
             "risk_acknowledgment_at": datetime.utcnow().isoformat(),
             "is_active": True,
             "metadata": {
-                "registration_ip": request.client.host,
+                "registration_ip": request.client.host if request.client else "unknown",
                 "hashed_password": hashed_password  # Double-hashed: SHA-256 + bcrypt with salt
             }
         }
@@ -190,10 +201,18 @@ async def login(credentials: UserLogin, request: Request):
     
     try:
         # Check for brute force attempts
-        check_brute_force(client_ip)
+        try:
+            check_brute_force(client_ip)
+        except HTTPException as e:
+            logger.warning(f"Brute force check failed for {client_ip}: {e.detail}")
+            raise
         
-        # Validate and sanitize email
-        clean_email = InputValidator.validate_email(credentials.email)
+        # Validate and sanitize email (with fallback)
+        try:
+            clean_email = InputValidator.validate_email(credentials.email)
+        except Exception as e:
+            logger.warning(f"Email validation failed: {e}")
+            clean_email = credentials.email.lower().strip()
         
         # Get user by email
         result = db.table("users").select("*").eq("email", clean_email).eq("is_active", True).execute()

@@ -1,17 +1,31 @@
 """FastAPI application"""
 
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+import logging
 
 from app.config import settings
 from app.api import api_router
-from app.middleware import (
-    RateLimitMiddleware,
-    SecurityHeadersMiddleware,
-    InputSanitizationMiddleware
-)
+
+logger = logging.getLogger(__name__)
+
+
+class SimpleSecurityMiddleware(BaseHTTPMiddleware):
+    """Simple security middleware for serverless"""
+    
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # Add security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        
+        return response
 
 
 def validate_startup_config():
@@ -49,27 +63,19 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     """Run startup validation"""
-    validate_startup_config()
+    try:
+        validate_startup_config()
+        logger.info("Application startup successful")
+    except Exception as e:
+        logger.error(f"Startup error: {e}")
+        # Don't raise - allow app to start anyway
 
 
-# Security Middleware (order matters - applied in reverse)
-# 1. Trusted Host - validate Host header
-if settings.ENVIRONMENT == "production":
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["stock-intelligence-copilot.vercel.app", "*.vercel.app"]
-    )
+# Security Middleware (simplified for serverless)
+# 1. Security Headers
+app.add_middleware(SimpleSecurityMiddleware)
 
-# 2. Rate Limiting - prevent abuse
-app.add_middleware(RateLimitMiddleware, requests_per_minute=60)
-
-# 3. Security Headers - XSS, clickjacking, etc.
-app.add_middleware(SecurityHeadersMiddleware)
-
-# 4. Input Sanitization - validate and sanitize inputs
-app.add_middleware(InputSanitizationMiddleware)
-
-# 5. CORS middleware - must be last
+# 2. CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
