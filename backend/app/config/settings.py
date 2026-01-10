@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     VERSION: str = "0.2.0"  # Phase 2A
     
     # CORS
-    BACKEND_CORS_ORIGINS: str = '["http://localhost:3000","http://localhost:3001","http://localhost:8080","http://localhost:8001"]'
+    BACKEND_CORS_ORIGINS: str = '["http://localhost:3000","http://localhost:3001","http://localhost:8080","http://localhost:8001","https://stock-intelligence-copilot.vercel.app"]'
     
     @property
     def cors_origins(self) -> List[str]:
@@ -90,8 +90,8 @@ class Settings(BaseSettings):
     MCP_TRIGGER_COOLDOWN_MINUTES: int = 5  # Minimum time between MCP calls per ticker
     
     # Environment
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
+    ENVIRONMENT: str = "production"
+    DEBUG: bool = False
     
     class Config:
         case_sensitive = True
