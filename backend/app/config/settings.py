@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     """Application settings"""
     
     # API Settings
-    API_V1_PREFIX: str = "/api/v1"
+    API_V1_PREFIX: str = "/v1"  # Vercel routes /api/* to backend, so we use /v1 here
     PROJECT_NAME: str = "Stock Intelligence Copilot"
     VERSION: str = "0.2.0"  # Phase 2A
     
