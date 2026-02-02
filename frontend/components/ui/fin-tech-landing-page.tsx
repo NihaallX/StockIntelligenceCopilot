@@ -1,235 +1,82 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import {
-  TrendingUp,
-  Shield,
-  BarChart3,
-  Zap,
-  Check,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowRight, BarChart3, Lock, Zap, MousePointer2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-interface FinTechLandingPageProps {
-  className?: string;
-}
-
-export function FinTechLandingPage({ className }: FinTechLandingPageProps) {
-  const features = [
-    {
-      icon: <BarChart3 className="w-6 h-6" />,
-      title: "Technical Analysis",
-      description: "Advanced indicators and signals powered by real-time market data",
-    },
-    {
-      icon: <TrendingUp className="w-6 h-6" />,
-      title: "Fundamental Scoring",
-      description: "Deep analysis of valuations, growth, profitability, and financial health",
-    },
-    {
-      icon: <Zap className="w-6 h-6" />,
-      title: "Scenario Analysis",
-      description: "Probabilistic best/base/worst case projections with risk metrics",
-    },
-    {
-      icon: <Shield className="w-6 h-6" />,
-      title: "Risk Management",
-      description: "Personalized risk profiles with position limits and exposure controls",
-    },
-  ];
-
-  const benefits = [
-    "Real-time market analysis",
-    "Portfolio tracking with P&L",
-    "Multi-factor scoring algorithm",
-    "Actionable recommendations",
-    "Comprehensive risk assessment",
-    "Secure authentication",
-  ];
-
+export function FinTechLandingPage() {
   return (
-    <div className={`min-h-screen ${className}`}>
+    <div className="flex flex-col items-center justify-center min-h-screen w-full text-center px-4 py-24 relative overflow-hidden">
+
+      {/* Background Grid Pattern is in globals.css .technical-grid */}
+      <div className="absolute inset-0 z-0 technical-grid opacity-30 pointer-events-none" />
+
       {/* Hero Section */}
-      <section className="container mx-auto px-6 pt-20 pb-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-4xl mx-auto"
-        >
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
-            Stock Intelligence
-            <span className="block text-primary mt-2">Powered by AI</span>
-          </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Make informed investment decisions with comprehensive technical analysis,
-            fundamental scoring, and probabilistic scenario modeling.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-3 bg-primary text-primary-foreground rounded-lg font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity w-full sm:w-auto"
-              >
-                Get Started
-                <ArrowRight className="w-5 h-5" />
-              </motion.button>
-            </Link>
-            <Link href="/login">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-3 border border-border rounded-lg font-semibold hover:bg-accent transition-colors w-full sm:w-auto"
-              >
-                Sign In
-              </motion.button>
-            </Link>
-          </div>
-        </motion.div>
-      </section>
+      <div className="relative z-10 w-full max-w-7xl mx-auto space-y-12">
 
-      {/* Features Grid */}
-      <section className="container mx-auto px-6 py-16">
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
-        >
-          {features.map((feature, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="p-6 rounded-xl border border-border bg-card hover:shadow-lg transition-shadow"
-            >
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 text-primary">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground">{feature.description}</p>
-            </motion.div>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="container mx-auto px-6 py-16">
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="max-w-5xl mx-auto"
-        >
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold mb-4">
-                Everything you need for intelligent investing
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Our platform combines cutting-edge technical analysis with deep
-                fundamental research and probabilistic scenario modeling to give you
-                a complete picture of any stock.
-              </p>
-              <ul className="space-y-3">
-                {benefits.map((benefit, index) => (
-                  <motion.li
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: index * 0.1 }}
-                    className="flex items-center gap-3"
-                  >
-                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Check className="w-3 h-3 text-primary" />
-                    </div>
-                    <span>{benefit}</span>
-                  </motion.li>
-                ))}
-              </ul>
-            </div>
-            <div className="relative">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-                className="aspect-square rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-border p-8 flex items-center justify-center"
-              >
-                <div className="text-center">
-                  <div className="text-6xl font-bold text-primary mb-2">43/100</div>
-                  <div className="text-sm text-muted-foreground">Combined Score</div>
-                  <div className="mt-6 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Technical</span>
-                      <span className="font-semibold">53%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Fundamental</span>
-                      <span className="font-semibold">21%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Scenario</span>
-                      <span className="font-semibold">+0.5%</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-6 py-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="max-w-4xl mx-auto text-center bg-primary/5 rounded-2xl p-12 border border-border"
-        >
-          <h2 className="text-3xl font-bold mb-4">
-            Ready to make smarter investment decisions?
-          </h2>
-          <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of investors using data-driven insights to optimize
-            their portfolio strategy.
-          </p>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-8 py-3 bg-primary text-primary-foreground rounded-lg font-semibold inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
-          >
-            Start Free Trial
-            <ArrowRight className="w-5 h-5" />
-          </motion.button>
-          <p className="text-xs text-muted-foreground mt-4">
-            No credit card required • Cancel anytime
-          </p>
-        </motion.div>
-      </section>
-
-      {/* Footer */}
-      <footer className="container mx-auto px-6 py-8 border-t border-border">
-        <div className="text-center text-sm text-muted-foreground">
-          <p>
-            This is for informational purposes only and does not constitute
-            financial advice.
-          </p>
-          <p className="mt-2">
-            © 2026 Stock Intelligence Copilot. All rights reserved.
-          </p>
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-mono font-medium text-primary border border-primary/20 bg-primary/5 rounded-none uppercase tracking-wider mb-8">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          System Online: v2.0.4
         </div>
-      </footer>
+
+        {/* Main Title */}
+        <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-white leading-[0.9]">
+          MARKET INTELLIGENCE <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-emerald-400 to-cyan-500 animate-gradient">
+            REDEFINED
+          </span>
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto font-mono leading-relaxed pt-4">
+          Deploy AI agents to analyze complex market signals.
+          Real-time execution. Institutional-grade precision.
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-6 justify-center items-center pt-12 pb-24">
+          <Link href="/register">
+            <Button size="lg" className="h-14 px-10 text-lg font-bold bg-primary text-black hover:bg-primary/90 rounded-none border border-primary transition-all hover:scale-105 shadow-[0_0_30px_rgba(0,255,157,0.4)]">
+              INITIALIZE TERMINAL <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+          </Link>
+          <Link href="/login">
+            <Button size="lg" variant="outline" className="h-14 px-10 text-lg font-mono rounded-none border-secondary-foreground/20 hover:bg-secondary/50 transition-all">
+              ACCESS PORTAL
+            </Button>
+          </Link>
+        </div>
+
+        {/* Feature Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left border-t border-border/20 pt-24">
+          {[
+            {
+              icon: Zap,
+              title: "Real-Time Signals",
+              desc: "Sub-millisecond latency processing of global market feeds via Tavily MCP."
+            },
+            {
+              icon: Lock,
+              title: "Secure Core",
+              desc: "Enterprise-grade encryption with persistent user memory context."
+            },
+            {
+              icon: BarChart3,
+              title: "Predictive Alpha",
+              desc: "Advanced algorithmic models for high-confidence setup detection."
+            }
+          ].map((feature, idx) => (
+            <div key={idx} className="group p-8 border border-border/40 bg-background/50 hover:border-primary/50 transition-all duration-300 hover:bg-background/80">
+              <feature.icon className="w-10 h-10 text-primary mb-6 group-hover:scale-110 transition-transform duration-300" />
+              <h3 className="text-xl font-bold mb-3 font-sans tracking-tight">{feature.title}</h3>
+              <p className="text-base text-muted-foreground font-mono leading-relaxed">
+                {feature.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

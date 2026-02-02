@@ -117,17 +117,16 @@ class AuditLogger:
                 "metadata": metadata or {}
             }
             
-            # Insert into audit_logs table (using service role to bypass RLS)
-            db = get_service_db()
-            result = db.table("audit_logs").insert(log_entry).execute()
+            # TODO: Migrate to async SQLAlchemy when audit_logs table is created
+            # For now, just log to console to avoid blocking auth operations
+            # Old code using Supabase-style API:
+            # db = get_service_db()
+            # result = db.table("audit_logs").insert(log_entry).execute()
             
-            if result.data and len(result.data) > 0:
-                log_id = result.data[0]["id"]
-                logger.info(f"Audit log created: {log_id} | Event: {event_type} | User: {user_id}")
-                return log_id
-            else:
-                logger.error(f"Failed to create audit log for event: {event_type}")
-                return None
+            # Log the audit event to console/file for now
+            log_id = str(session_id or user_id)
+            logger.info(f"Audit: {event_type} | User: {user_id} | Session: {session_id}")
+            return log_id
                 
         except Exception as e:
             # CRITICAL: Audit logging failure should not block operations

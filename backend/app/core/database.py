@@ -1,61 +1,53 @@
-"""Database connection and utilities for Supabase"""
+"""Database connection and utilities (replacing Supabase)"""
 
-from supabase import create_client, Client
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
 from app.config import settings
-from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Create Async Engine
+# echo=True will log SQL queries (useful for debugging)
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DB_ECHO_LOGS,
+    future=True
+)
 
-class Database:
-    """Supabase database client singleton"""
-    
-    _client: Optional[Client] = None
-    _service_client: Optional[Client] = None
-    
-    @classmethod
-    def get_client(cls, use_service_role: bool = False) -> Client:
-        """
-        Get Supabase client
-        
-        Args:
-            use_service_role: If True, returns client with service role key (bypasses RLS)
-        
-        Returns:
-            Supabase client instance
-        """
-        if use_service_role:
-            if cls._service_client is None:
-                cls._service_client = create_client(
-                    settings.SUPABASE_URL,
-                    settings.SUPABASE_SERVICE_ROLE_KEY
-                )
-                logger.info("Initialized Supabase service role client")
-            return cls._service_client
-        else:
-            if cls._client is None:
-                cls._client = create_client(
-                    settings.SUPABASE_URL,
-                    settings.SUPABASE_ANON_KEY
-                )
-                logger.info("Initialized Supabase anon client")
-            return cls._client
-    
-    @classmethod
-    def close(cls):
-        """Close database connections"""
-        cls._client = None
-        cls._service_client = None
-        logger.info("Closed Supabase clients")
+# Async Session Factory
+async_session_maker = sessionmaker(
+    engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False
+)
 
+async def init_db():
+    """
+    Initialize database tables.
+    In a real production app, use Alembic for migrations.
+    For this transition, we'll auto-create tables if they don't exist.
+    """
+    try:
+        from app.models.sql_tables import User, UserRiskProfile, PortfolioPosition
+        async with engine.begin() as conn:
+            # await conn.run_sync(SQLModel.metadata.drop_all) # WARNING: Uncomment only to reset DB
+            await conn.run_sync(SQLModel.metadata.create_all)
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
 
-# Convenience function
-def get_db() -> Client:
-    """Get database client"""
-    return Database.get_client()
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency for FastAPI routes to get a database session.
+    """
+    async with async_session_maker() as session:
+        yield session
 
-
-def get_service_db() -> Client:
-    """Get database client with service role (for audit logs, etc.)"""
-    return Database.get_client(use_service_role=True)
+# Helper aliases to maintain some backward compatibility awareness
+# though the API is changing from synchronous/supabase to async/sqlalchemy
+get_service_db = get_session
+get_db = get_session

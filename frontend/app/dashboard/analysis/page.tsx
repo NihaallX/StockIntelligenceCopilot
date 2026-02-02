@@ -28,7 +28,7 @@ function parseRecommendation(rec: string) {
 }
 
 function isInactionRecommendation(action: string) {
-  return ['HOLD', 'AVOID', 'NO ACTION', 'MONITOR'].some(word => 
+  return ['HOLD', 'AVOID', 'NO ACTION', 'MONITOR'].some(word =>
     action.toUpperCase().includes(word)
   );
 }
@@ -37,7 +37,7 @@ function isInactionRecommendation(action: string) {
 function validateAnalysisIntegrity(analysis: EnhancedAnalysis): string | null {
   const score = parseInt(analysis.combined_score);
   const rec = parseRecommendation(analysis.recommendation);
-  
+
   // Check for impossible score/recommendation combinations
   if (score > 70 && rec.action.includes('AVOID')) {
     return 'Data integrity issue: High score conflicts with AVOID recommendation. Analysis suspended.';
@@ -45,13 +45,13 @@ function validateAnalysisIntegrity(analysis: EnhancedAnalysis): string | null {
   if (score < 30 && rec.action.includes('BUY')) {
     return 'Data integrity issue: Low score conflicts with BUY signal. Analysis suspended.';
   }
-  
+
   // Check for technical vs fundamental conflicts
   if (analysis.fundamental_score) {
     const fundAssessment = analysis.fundamental_score.overall_assessment;
     const isBullishRec = rec.action.includes('BUY');
     const isBearishRec = rec.action.includes('SELL') || rec.action.includes('AVOID');
-    
+
     if (fundAssessment === 'POOR' && isBullishRec && !rec.reasoning.toLowerCase().includes('fundamental')) {
       return null; // Conflict acknowledged in reasoning
     }
@@ -59,28 +59,28 @@ function validateAnalysisIntegrity(analysis: EnhancedAnalysis): string | null {
       return null; // Conflict acknowledged in reasoning
     }
   }
-  
+
   return null; // Data integrity OK
 }
 
 // Detect conflicting signals between technical and fundamental analysis
 function detectConflictingSignals(analysis: EnhancedAnalysis): string | null {
   if (!analysis.fundamental_score) return null;
-  
+
   const rec = parseRecommendation(analysis.recommendation);
   const fundAssessment = analysis.fundamental_score.overall_assessment;
   const fundScore = analysis.fundamental_score.overall_score;
-  
+
   // Technical bullish + fundamentals bearish
   if (rec.action.includes('BUY') && fundAssessment === 'POOR') {
     return 'Technical indicators suggest buying, but fundamental analysis shows weakness. This creates uncertainty — consider your investment time horizon and risk tolerance.';
   }
-  
+
   // Technical bearish + fundamentals bullish
   if ((rec.action.includes('HOLD') || rec.action.includes('AVOID')) && fundAssessment === 'STRONG' && fundScore > 70) {
     return 'Strong fundamental profile but technical signals advise caution. May be suitable for long-term investors willing to wait for better entry points.';
   }
-  
+
   // Scenario analysis conflicts
   if (analysis.scenario_analysis) {
     const expectedReturn = parseFloat(analysis.scenario_analysis.expected_return_weighted);
@@ -88,7 +88,7 @@ function detectConflictingSignals(analysis: EnhancedAnalysis): string | null {
       return 'Recommendation is positive but probability-weighted expected return is negative. This indicates high uncertainty in our models.';
     }
   }
-  
+
   return null;
 }
 
@@ -103,7 +103,7 @@ export default function AnalysisPage() {
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const [portfolioStocks, setPortfolioStocks] = useState<PortfolioPosition[]>([]);
   const [isContextExpanded, setIsContextExpanded] = useState(false);
-  
+
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<StockSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -137,7 +137,7 @@ export default function AnalysisPage() {
   const handleInputChange = (value: string) => {
     const upperValue = value.toUpperCase();
     setTicker(upperValue);
-    
+
     // Show suggestions if typing
     if (value.length >= 2) {
       const results = searchStocks(value);
@@ -164,12 +164,12 @@ export default function AnalysisPage() {
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => 
+      setSelectedIndex(prev =>
         prev < suggestions.length - 1 ? prev + 1 : 0
       );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex(prev => 
+      setSelectedIndex(prev =>
         prev > 0 ? prev - 1 : suggestions.length - 1
       );
     } else if (e.key === 'Enter' && selectedIndex >= 0) {
@@ -206,7 +206,7 @@ export default function AnalysisPage() {
     setIsLoading(true);
     setIsSlowLoading(false);
     setAnalysis(null);
-    
+
     // Set slow loading indicator after 3 seconds
     const slowLoadingTimer = setTimeout(() => {
       setIsSlowLoading(true);
@@ -214,7 +214,7 @@ export default function AnalysisPage() {
 
     try {
       const result = await getEnhancedAnalysis(tokens.access_token, ticker.toUpperCase());
-      
+
       // Validate data integrity
       const integrityIssue = validateAnalysisIntegrity(result);
       if (integrityIssue) {
@@ -230,12 +230,12 @@ export default function AnalysisPage() {
       } else {
         setError(err.message || "Analysis failed");
       }
-      
+
       // Start countdown for rate limit errors
       if (err.message && err.message.includes('Rate limit')) {
         setRateLimitCountdown(60);
       }
-      
+
       // If auth error, redirect after showing message
       if (err.category === 'auth') {
         setTimeout(() => window.location.href = '/login', 2000);
@@ -304,7 +304,7 @@ export default function AnalysisPage() {
               placeholder="Type to search (e.g., Reliance, TCS) or enter ticker (RELIANCE.NS)"
               required
             />
-            
+
             {/* Autocomplete Dropdown */}
             {showSuggestions && suggestions.length > 0 && (
               <div
@@ -316,26 +316,24 @@ export default function AnalysisPage() {
                     key={suggestion.ticker}
                     type="button"
                     onClick={() => selectSuggestion(suggestion)}
-                    className={`w-full px-4 py-3 text-left hover:bg-accent transition-colors flex items-center justify-between ${
-                      index === selectedIndex ? 'bg-accent' : ''
-                    }`}
+                    className={`w-full px-4 py-3 text-left hover:bg-accent transition-colors flex items-center justify-between ${index === selectedIndex ? 'bg-accent' : ''
+                      }`}
                   >
                     <div>
                       <div className="font-semibold">{suggestion.name}</div>
                       <div className="text-sm text-muted-foreground">{suggestion.ticker}</div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      suggestion.exchange === 'NSE' 
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
-                        : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                    }`}>
+                    <span className={`text-xs px-2 py-1 rounded ${suggestion.exchange === 'NSE'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                      }`}>
                       {suggestion.exchange}
                     </span>
                   </button>
                 ))}
               </div>
             )}
-            
+
             <p className="mt-2 text-sm text-muted-foreground">
               💡 Works with ALL NSE/BSE stocks - search by name or type ticker directly (e.g., RELIANCE.NS)
             </p>
@@ -349,16 +347,16 @@ export default function AnalysisPage() {
             {isLoading ? "Analyzing..." : "Analyze"}
           </button>
         </form>
-        
+
         {isSlowLoading && (
           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
             <p className="text-muted-foreground">
-              ⏱️ Analysis is taking longer than usual. This can happen with complex data or high server load. 
+              ⏱️ Analysis is taking longer than usual. This can happen with complex data or high server load.
               Please wait...
             </p>
           </div>
         )}
-        
+
         {dataIntegrityIssue && (
           <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 border border-red-300 dark:border-red-700 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
@@ -367,12 +365,12 @@ export default function AnalysisPage() {
             </div>
             <p className="text-sm text-muted-foreground mb-2">{dataIntegrityIssue}</p>
             <p className="text-xs text-muted-foreground">
-              We cannot display this analysis as the data appears inconsistent. 
+              We cannot display this analysis as the data appears inconsistent.
               This is a protective measure to prevent misleading recommendations.
             </p>
           </div>
         )}
-        
+
         {error && (
           <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-300 dark:border-amber-700 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
@@ -387,7 +385,7 @@ export default function AnalysisPage() {
             </div>
             <p className="text-sm text-muted-foreground">
               {error.includes('risk') || error.includes('limit') || error.includes('exceed')
-                ? `\u26a0 ${error}` 
+                ? `\u26a0 ${error}`
                 : `Unable to analyze ${ticker.toUpperCase()}: ${error}`}
             </p>
             {rateLimitCountdown > 0 && (
@@ -440,11 +438,11 @@ export default function AnalysisPage() {
               <TimeOfDayContext />
               {HelpTooltips.intradayFreshness}
             </div>
-            
+
             {(() => {
               const parsed = parseRecommendation(analysis.recommendation);
               const isInaction = isInactionRecommendation(parsed.action);
-              
+
               // Mock regime data - in production, this would come from the API
               const regimes: RegimeType[] = [];
               if (analysis.market_context?.context_summary?.toLowerCase().includes('index')) {
@@ -453,13 +451,12 @@ export default function AnalysisPage() {
               if (analysis.market_context?.context_summary?.toLowerCase().includes('volatil')) {
                 regimes.push('pre-market-volatility');
               }
-              
+
               return (
-                <div className={`p-6 rounded-xl border-2 ${
-                  isInaction 
-                    ? "bg-amber-50 dark:bg-amber-900/10 border-amber-300 dark:border-amber-700"
-                    : "bg-muted border-border"
-                }`}>
+                <div className={`p-6 rounded-xl border-2 ${isInaction
+                  ? "bg-amber-50 dark:bg-amber-900/10 border-amber-300 dark:border-amber-700"
+                  : "bg-muted border-border"
+                  }`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       {isInaction && <Shield className="w-6 h-6 text-amber-600" />}
@@ -480,8 +477,8 @@ export default function AnalysisPage() {
                   {/* Data Source Info */}
                   {analysis.market_context?.data_sources_used && analysis.market_context.data_sources_used.length > 0 && (
                     <div className="mb-4">
-                      <DataSourceInfo 
-                        dataSource={analysis.market_context.data_sources_used[0]} 
+                      <DataSourceInfo
+                        dataSource={analysis.market_context.data_sources_used[0]}
                         confidence={0.85}
                       />
                     </div>
@@ -490,18 +487,16 @@ export default function AnalysisPage() {
                   {parsed.reasoning && (
                     <p className="text-sm text-muted-foreground mb-4">{parsed.reasoning}</p>
                   )}
-                  <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
-                    <p>ℹ️ This is a probability-based assessment, not financial advice. All investments carry risk.</p>
-                  </div>
+
                 </div>
               );
             })()}
-            
+
             {/* Conflicting Signals Warning */}
             {(() => {
               const conflictWarning = detectConflictingSignals(analysis);
               if (!conflictWarning) return null;
-              
+
               return (
                 <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-300 dark:border-amber-700 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
@@ -525,12 +520,12 @@ export default function AnalysisPage() {
                 <h3 className="font-semibold">Limited Fundamental Data</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                Fundamental analysis is unavailable for {ticker.toUpperCase()}. 
+                Fundamental analysis is unavailable for {ticker.toUpperCase()}.
                 This recommendation is based solely on technical indicators and may have reduced reliability.
               </p>
             </div>
           )}
-          
+
           {analysis.fundamental_score && (
             <div className="bg-card border border-border rounded-xl p-6">
               <h3 className="text-xl font-semibold mb-4">Fundamental Analysis</h3>
@@ -663,7 +658,7 @@ export default function AnalysisPage() {
                 {HelpTooltips.mcpContext}
               </div>
               {analysis.market_context && (
-                <ContextVerifiedBadge 
+                <ContextVerifiedBadge
                   mcp_status={analysis.market_context.mcp_status}
                   sources_count={analysis.market_context.data_sources_used?.length || 0}
                 />
@@ -678,9 +673,9 @@ export default function AnalysisPage() {
                     <strong className="text-blue-700 dark:text-blue-300">📊 Context:</strong> {analysis.market_context.context_summary}
                   </p>
                 </div>
-                
+
                 <div className="mt-3 text-xs text-muted-foreground">
-                  <strong>Note:</strong> These sources SUPPORT the signal above. They did not generate it. 
+                  <strong>Note:</strong> These sources SUPPORT the signal above. They did not generate it.
                   The signal was produced by technical + fundamental analysis, then this context was retrieved.
                 </div>
               </div>
@@ -693,7 +688,7 @@ export default function AnalysisPage() {
                       No supporting market context found yet
                     </p>
                     <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                      The analysis above is based on technical and fundamental indicators only. 
+                      The analysis above is based on technical and fundamental indicators only.
                       Market context data is unavailable at this time.
                     </p>
                   </div>
@@ -739,7 +734,7 @@ export default function AnalysisPage() {
                       Context data unavailable
                     </p>
                     <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                      The analysis above is based on technical and fundamental indicators only. 
+                      The analysis above is based on technical and fundamental indicators only.
                       Market context could not be retrieved at this time.
                     </p>
                   </div>
@@ -766,7 +761,7 @@ export default function AnalysisPage() {
 
             <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
               <p>
-                📊 Context sources are verified from reputable financial news providers. 
+                📊 Context sources are verified from reputable financial news providers.
                 This information enriches your analysis but should not be the sole basis for investment decisions.
               </p>
             </div>
@@ -774,28 +769,7 @@ export default function AnalysisPage() {
         </motion.div>
       )}
 
-      {/* Legal Disclaimer Banner - Always visible */}
-      <div className="mt-6 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Scale className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
-              Decision-Support Tool • Not Financial Advice
-            </h4>
-            <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
-              This analysis is for educational and informational purposes only. It is not personalized financial advice. 
-              Past performance does not guarantee future results. Always consult a SEBI-registered investment advisor 
-              before making investment decisions.{" "}
-              <Link 
-                href="/legal/disclaimer" 
-                className="underline hover:text-blue-600 dark:hover:text-blue-400 font-medium"
-              >
-                Full Disclaimer
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 }

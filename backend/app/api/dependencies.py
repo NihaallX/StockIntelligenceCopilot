@@ -2,24 +2,26 @@
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 import logging
 
 from app.core.auth import verify_token
-from app.core.database import get_service_db
-from app.models.auth_models import User, UserRiskProfile
+from app.core.database import get_session
+from app.models.sql_tables import User, UserRiskProfile
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    session: AsyncSession = Depends(get_session)
 ) -> User:
     """
     Dependency to get current authenticated user
     
-    Validates JWT token and returns user object
+    Validates JWT token and returns user object from database
     Raises 401 if token is invalid or user not found
     """
     token = credentials.credentials
@@ -40,21 +42,28 @@ async def get_current_user(
         )
     
     # Get user from database
-    db = get_service_db()
-    result = db.table("users").select("*").eq("id", user_id).eq("is_active", True).execute()
-    
-    if not result.data:
+    try:
+        user = await session.get(User, user_id)
+        
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+            
+        return user
+        
+    except Exception as e:
+        logger.error(f"Database error in get_current_user: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connection error"
         )
-    
-    user_data = result.data[0]
-    return User(**user_data)
 
 
 async def get_user_risk_profile(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
 ) -> UserRiskProfile:
     """
     Dependency to get current user's risk profile
@@ -62,17 +71,27 @@ async def get_user_risk_profile(
     Returns risk profile for authenticated user
     Raises 404 if profile not found
     """
-    db = get_service_db()
-    result = db.table("user_risk_profiles").select("*").eq("user_id", str(current_user.id)).execute()
-    
-    if not result.data:
+    try:
+        statement = select(UserRiskProfile).where(UserRiskProfile.user_id == current_user.id)
+        result = await session.execute(statement)
+        profile_data = result.scalars().first()
+        
+        if not profile_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Risk profile not found. Please create one first."
+            )
+        
+        return profile_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Database error in get_user_risk_profile: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Risk profile not found. Please create one first."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch risk profile"
         )
-    
-    profile_data = result.data[0]
-    return UserRiskProfile(**profile_data)
 
 
 async def get_session_context(

@@ -260,3 +260,44 @@ class EnhancedInsightResponse(BaseModel):
         "This analysis is for informational purposes only and does not constitute financial advice. "
         "Past performance is not indicative of future results. Always do your own research."
     )
+
+
+# =====================================================
+# AI ANALYSIS MODELS (Restored/Added)
+# =====================================================
+
+class PortfolioSuggestion(BaseModel):
+    """AI suggestion for portfolio improvement"""
+    type: Literal["buy", "sell", "hold", "rebalance"]
+    ticker: Optional[str] = None
+    reasoning: str
+    confidence: float = Field(ge=0, le=1)
+    
+class PortfolioPositionInput(BaseModel):
+    """Input position for analysis (minimal)"""
+    ticker: str
+    quantity: Decimal
+    entry_price: Decimal
+    current_price: Optional[Decimal] = None
+
+class PortfolioAnalysisRequest(BaseModel):
+    """Request for AI portfolio analysis"""
+    positions: List[PortfolioPositionInput]
+    risk_tolerance: Literal["conservative", "moderate", "aggressive"] = "moderate"
+
+class PortfolioAnalysisResponse(BaseModel):
+    """Response from AI analysis"""
+    success: bool
+    portfolio_score: int
+    portfolio_health: str
+    total_value: Decimal
+    total_pnl: Decimal
+    total_pnl_percent: Decimal
+    suggestions: List[PortfolioSuggestion]
+    risk_assessment: str
+    diversification_score: int
+    processing_time_ms: int
+
+# Alias to satisfy import in portfolio.py
+PortfolioPosition = PortfolioPositionInput
+

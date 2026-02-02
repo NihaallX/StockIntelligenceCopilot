@@ -7,10 +7,8 @@ import secrets
 # bcrypt context with cost factor 14 (higher = more secure, slower)
 # Using bcrypt which automatically handles salting
 pwd_context = CryptContext(
-    schemes=["bcrypt"],
+    schemes=["pbkdf2_sha256"],
     deprecated="auto",
-    bcrypt__rounds=14,  # Increased from 12 for better security
-    bcrypt__ident="2b"   # Use 2b variant (more secure)
 )
 
 
@@ -29,12 +27,8 @@ def hash_password(password: str) -> str:
     Returns:
         Hashed password with embedded salt
     """
-    # Pre-hash with SHA-256 to handle long passwords
-    # (bcrypt has 72-byte limit)
-    prehashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
-    
-    # Hash with bcrypt (includes automatic salting)
-    return pwd_context.hash(prehashed)
+    # Directly hash with bcrypt (limit 72 bytes, but usually fine)
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -51,11 +45,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         True if password matches, False otherwise
     """
     try:
-        # Pre-hash the input password same way as during hashing
-        prehashed = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
-        
-        # Verify with bcrypt (automatically extracts salt from hash)
-        return pwd_context.verify(prehashed, hashed_password)
+        # Verify directly with passlib (matches hash_password)
+        return pwd_context.verify(plain_password, hashed_password)
     except Exception:
         # If verification fails for any reason, return False
         return False

@@ -30,7 +30,7 @@ function VWAPExplainer() {
         <HelpCircle className="h-4 w-4" />
         What is VWAP?
       </button>
-      
+
       {isOpen && (
         <Card className="mt-2 border-blue-200 bg-blue-50">
           <CardContent className="p-4">
@@ -39,13 +39,13 @@ function VWAPExplainer() {
               <p>
                 <strong>Think of it as the "fair price"</strong> for a stock today based on where most trading happened.
               </p>
-              
+
               <div className="space-y-1 ml-4">
                 <p>• <strong>Price ABOVE VWAP</strong> → Stock is expensive right now (buyers are strong)</p>
                 <p>• <strong>Price AT VWAP</strong> → Stock is at fair value (decision point)</p>
                 <p>• <strong>Price BELOW VWAP</strong> → Stock is cheap right now (sellers are strong)</p>
               </div>
-              
+
               <p className="pt-2">
                 <strong>Why it matters:</strong> When price bounces off VWAP or breaks through it with high volume,
                 it often signals a good entry or exit opportunity.
@@ -78,19 +78,19 @@ function getActionableAdvice(tags: string[], severity: string): string {
   const hasBounce = tags.some(t => t.toLowerCase().includes("bounce"))
   const hasRejection = tags.some(t => t.toLowerCase().includes("rejection"))
   const hasBreakdown = tags.some(t => t.toLowerCase().includes("breakdown"))
-  
+
   if (severity === "alert") {
     if (hasBreakdown) return "⚠️ Consider selling or avoiding - price is breaking down with volume"
     if (hasRejection) return "⚠️ Watch carefully - price is being rejected at key level"
     return "⚠️ Pay attention - significant move detected"
   }
-  
+
   if (severity === "caution") {
     if (hasRejection) return "⚡ Wait and watch - sellers are pushing price down"
     if (hasBreakout) return "⚡ Potential buy - price breaking above with strength"
     return "⚡ Be cautious - mixed signals"
   }
-  
+
   // watch
   if (hasBounce) return "👀 Could be entry point - price bouncing off support"
   if (hasBreakout) return "👀 Shows strength - price breaking higher"
@@ -141,13 +141,13 @@ export default function TodaysWatchDashboard() {
           Authorization: `Bearer ${tokens.access_token}`,
         },
       })
-      
+
       if (response.status === 401) {
         // Token expired or invalid
         handleAuthError()
         return
       }
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.statusText}`)
       }
@@ -173,11 +173,11 @@ export default function TodaysWatchDashboard() {
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
     const diffMins = Math.floor(diffMs / 60000)
-    
+
     if (diffMins < 1) return "Just now"
     if (diffMins === 1) return "1 minute ago"
     if (diffMins < 60) return `${diffMins} minutes ago`
-    
+
     const diffHours = Math.floor(diffMins / 60)
     if (diffHours === 1) return "1 hour ago"
     return `${diffHours} hours ago`
@@ -297,7 +297,7 @@ export default function TodaysWatchDashboard() {
     <div className="space-y-4">
       {/* VWAP Education */}
       <VWAPExplainer />
-      
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -340,20 +340,20 @@ export default function TodaysWatchDashboard() {
               <span className="text-sm">Updating data...</span>
             </div>
           )}
-          
+
           <div className="space-y-3">
             {watchList.map((item) => (
-              <Link 
-                key={item.ticker} 
+              <Link
+                key={item.ticker}
                 href={`/dashboard/intraday/${item.ticker}`}
                 className="block"
               >
                 <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4"
                   style={{
-                    borderLeftColor: 
-                      item.severity === "alert" ? "#ef4444" : 
-                      item.severity === "caution" ? "#eab308" : 
-                      "#3b82f6"
+                    borderLeftColor:
+                      item.severity === "alert" ? "#ef4444" :
+                        item.severity === "caution" ? "#eab308" :
+                          "#3b82f6"
                   }}
                 >
                   <CardContent className="p-4">
@@ -364,10 +364,10 @@ export default function TodaysWatchDashboard() {
                           <span className="font-semibold text-lg">{item.ticker}</span>
                           {getSeverityBadge(item.severity)}
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-2 mb-3">
                           {item.tags.map((tag, idx) => (
-                            <span 
+                            <span
                               key={idx}
                               className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium"
                             >
@@ -375,10 +375,10 @@ export default function TodaysWatchDashboard() {
                             </span>
                           ))}
                         </div>
-                        
+
                         {/* Original description */}
                         <p className="text-gray-700 text-sm mb-2">{item.one_line}</p>
-                        
+
                         {/* Actionable advice in simple language */}
                         <div className="bg-gray-50 border-l-2 border-blue-400 pl-3 py-2 text-sm">
                           <p className="text-gray-800 font-medium">
@@ -395,22 +395,7 @@ export default function TodaysWatchDashboard() {
         </CardContent>
       </Card>
 
-      {/* Simplified Disclaimer */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="p-4">
-          <div className="flex gap-2 items-start">
-            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-blue-900">
-              <p className="font-semibold mb-1">📚 For Learning Only</p>
-              <p>
-                This system helps you understand what's happening with your stocks. 
-                It doesn't tell you to buy or sell - that decision is always yours. 
-                We show patterns and context to help you learn.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   )
 }

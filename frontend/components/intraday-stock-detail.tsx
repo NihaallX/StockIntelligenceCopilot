@@ -43,23 +43,23 @@ function simplifyLabel(label: string): string {
 
 // Helper to get simple advice based on price vs VWAP
 function getSimpleAdvice(detail: StockDetail): string {
-  const priceVsVwap = detail.current_price > detail.vwap ? "above" : 
-                      detail.current_price < detail.vwap * 0.998 ? "below" : "at";
-  
+  const priceVsVwap = detail.current_price > detail.vwap ? "above" :
+    detail.current_price < detail.vwap * 0.998 ? "below" : "at";
+
   if (priceVsVwap === "above") {
     if (detail.volume_ratio > 1.5) {
       return "💪 Price is above fair value with high volume - buyers are strong";
     }
     return "📈 Price is above fair value - expensive right now";
   }
-  
+
   if (priceVsVwap === "below") {
     if (detail.volume_ratio > 1.5) {
       return "⚠️ Price is below fair value with high volume - sellers are strong";
     }
     return "📉 Price is below fair value - cheap right now";
   }
-  
+
   return "⚖️ Price is at fair value - decision point";
 }
 
@@ -76,7 +76,7 @@ function VWAPQuickInfo() {
         <HelpCircle className="h-4 w-4" />
         What does VWAP mean?
       </button>
-      
+
       {isOpen && (
         <Card className="mt-2 border-blue-200 bg-blue-50">
           <CardContent className="p-3">
@@ -94,7 +94,7 @@ function VWAPQuickInfo() {
 export default function IntradayStockDetail() {
   const params = useParams()
   const ticker = params?.ticker as string
-  
+
   const [detail, setDetail] = useState<StockDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -111,7 +111,7 @@ export default function IntradayStockDetail() {
       setError(null)
 
       const response = await fetch(`${API_URL}/api/v1/intraday/stock/${tickerSymbol}`)
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.statusText}`)
       }
@@ -184,7 +184,7 @@ export default function IntradayStockDetail() {
               <p className="text-sm text-gray-500 mb-1">Current Price</p>
               <p className="text-2xl font-bold">₹{detail.current_price.toFixed(2)}</p>
             </div>
-            
+
             <div>
               <p className="text-sm text-gray-500 mb-1">Today's Move</p>
               <div className="flex items-center gap-2">
@@ -198,7 +198,7 @@ export default function IntradayStockDetail() {
                 </p>
               </div>
             </div>
-            
+
             <div>
               <p className="text-sm text-gray-500 mb-1">Fair Price (VWAP)</p>
               <p className="text-2xl font-bold">₹{detail.vwap.toFixed(2)}</p>
@@ -206,7 +206,7 @@ export default function IntradayStockDetail() {
                 {detail.current_price > detail.vwap ? 'Stock is expensive now' : 'Stock is cheap now'}
               </p>
             </div>
-            
+
             <div>
               <p className="text-sm text-gray-500 mb-1">Trading Activity</p>
               <p className="text-2xl font-bold">{detail.volume_ratio.toFixed(2)}x</p>
@@ -228,8 +228,8 @@ export default function IntradayStockDetail() {
       {/* What It Means (Risk Summary) */}
       <Card className={
         detail.severity === "alert" ? "border-red-300 bg-red-50" :
-        detail.severity === "caution" ? "border-yellow-300 bg-yellow-50" :
-        "border-blue-300 bg-blue-50"
+          detail.severity === "caution" ? "border-yellow-300 bg-yellow-50" :
+            "border-blue-300 bg-blue-50"
       }>
         <CardHeader>
           <CardTitle className="text-lg">What This Means</CardTitle>
@@ -265,10 +265,10 @@ export default function IntradayStockDetail() {
           <CardDescription>Pattern detected in today's trading</CardDescription>
         </CardHeader>
         <CardContent className="prose prose-sm max-w-none">
-          <div 
-            dangerouslySetInnerHTML={{ 
-              __html: detail.explanation.replace(/\n/g, '<br />') 
-            }} 
+          <div
+            dangerouslySetInnerHTML={{
+              __html: detail.explanation.replace(/\n/g, '<br />')
+            }}
           />
         </CardContent>
       </Card>
@@ -288,15 +288,7 @@ export default function IntradayStockDetail() {
         </Card>
       )}
 
-      {/* Disclaimer */}
-      <Card className="border-gray-300">
-        <CardContent className="p-4">
-          <p className="text-xs text-gray-600">
-            📚 <strong>For Learning Only</strong> - This helps you understand patterns, not tell you what to buy or sell. 
-            Always do your own research and talk to a financial advisor if needed.
-          </p>
-        </CardContent>
-      </Card>
+
     </div>
   )
 }

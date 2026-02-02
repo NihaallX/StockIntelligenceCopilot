@@ -9,7 +9,7 @@ interface HelpTooltipProps {
 
 export function HelpTooltip({ content, title, className = '' }: HelpTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
-  
+
   return (
     <div className={`relative inline-block ${className}`}>
       <button
@@ -21,7 +21,7 @@ export function HelpTooltip({ content, title, className = '' }: HelpTooltipProps
       >
         <HelpCircle className="w-4 h-4" />
       </button>
-      
+
       {isVisible && (
         <div className="absolute z-50 w-64 p-3 mt-2 bg-popover text-popover-foreground border border-border rounded-lg shadow-lg left-1/2 -translate-x-1/2">
           {title && (
@@ -42,42 +42,37 @@ export const HelpTooltips = {
       content="Strong Buy/Sell: High conviction signals. Buy/Sell: Moderate conviction. Hold: Wait for better entry or exit. Signals are probability-based, not guarantees."
     />
   ),
-  
+
   marketRegime: (
     <HelpTooltip
       title="Market Regime"
       content="Describes current market conditions: Index-led (broad market move), Pre-market volatility (high fluctuation), Low liquidity (thin trading), Sector correlation (industry-wide trend)."
     />
   ),
-  
+
   confidence: (
     <HelpTooltip
       title="Confidence Score"
       content="Based on data quality and source availability. High: Multiple reliable sources. Medium: Limited sources. Low: Fallback data or incomplete information."
     />
   ),
-  
+
   mcpContext: (
     <HelpTooltip
       title="Market Context"
       content="MCP (Market Context Protocol) provides supporting news and data AFTER the signal is generated. It explains WHY the signal matters but doesn't create it."
     />
   ),
-  
-  experimentalMode: (
-    <HelpTooltip
-      title="Experimental Mode"
-      content="Shows detailed agent reasoning, data source breakdown, and confidence metrics. Useful for understanding HOW the system arrived at its recommendation."
-    />
-  ),
-  
+
+
+
   dataQuality: (
     <HelpTooltip
       title="Data Quality"
       content="LIVE: Real-time data. DEMO: Delayed or sample data. STALE: Outdated data - refresh recommended. FALLBACK: Backup source in use due to primary unavailability."
     />
   ),
-  
+
   intradayFreshness: (
     <HelpTooltip
       title="Signal Freshness"

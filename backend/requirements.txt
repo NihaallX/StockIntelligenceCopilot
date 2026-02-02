@@ -22,13 +22,15 @@ requests==2.31.0
 yfinance==1.0  # Updated for MCP integration
 
 # Phase 2A: Authentication & Database
-supabase==2.27.0
+sqlmodel==0.0.14
+asyncpg==0.29.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 
 # Phase 2A: LLM Integration
 groq==0.4.2
+tavily-python==0.5.0  # Added for Web Search
 
 # Utilities
 python-dotenv==1.0.0

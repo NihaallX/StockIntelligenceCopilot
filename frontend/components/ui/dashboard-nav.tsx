@@ -34,7 +34,7 @@ export function DashboardNav() {
     { href: "/dashboard/opportunities", label: "Opportunities", icon: Eye },
     { href: "/dashboard/portfolio", label: "Portfolio", icon: Briefcase },
     { href: "/dashboard/analysis", label: "Analysis", icon: BarChart3 },
-    { href: "/legal/disclaimer", label: "Legal", icon: Scale },
+
   ];
 
   const handleLogout = () => {
@@ -84,11 +84,10 @@ export function DashboardNav() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      isActive
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isActive
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-accent"
-                    }`}
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     <span className="font-medium">{item.label}</span>
