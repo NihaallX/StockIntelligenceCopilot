@@ -62,9 +62,14 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
-    """Run startup validation"""
+    """Run startup validation and init db"""
     try:
         validate_startup_config()
+        
+        # Initialize Database
+        from app.core.database import init_db
+        await init_db()
+        
         logger.info("Application startup successful")
     except Exception as e:
         logger.error(f"Startup error: {e}")
@@ -72,10 +77,9 @@ async def startup_event():
 
 
 # Security Middleware (simplified for serverless)
-# 1. Security Headers
-app.add_middleware(SimpleSecurityMiddleware)
+# Note: Middleware order in FastAPI is LIFO - last added = first executed
 
-# 2. CORS middleware
+# 1. CORS middleware (added last so it executes first - handles preflight)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -84,8 +88,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes (no prefix - Vercel already routes /api/* here)
-app.include_router(api_router, prefix="")
+# 2. Security Headers (executes after CORS)
+app.add_middleware(SimpleSecurityMiddleware)
+
+# Include API routes (prefix /api to match frontend expectations)
+app.include_router(api_router, prefix="/api")
 
 
 @app.get("/", tags=["root"])
@@ -107,8 +114,7 @@ async def health_check():
     
     # Check critical environment variables
     env_status = {
-        "SUPABASE_URL": "✓" if os.getenv("SUPABASE_URL") and "dummy" not in os.getenv("SUPABASE_URL", "") else "✗",
-        "SUPABASE_ANON_KEY": "✓" if os.getenv("SUPABASE_ANON_KEY") and "dummy" not in os.getenv("SUPABASE_ANON_KEY", "") else "✗",
+        "DATABASE_URL": "✓" if os.getenv("DATABASE_URL") else "✗",
         "JWT_SECRET_KEY": "✓" if os.getenv("JWT_SECRET_KEY") and "your_super_secret" not in os.getenv("JWT_SECRET_KEY", "") else "✗",
         "GROQ_API_KEY": "✓" if os.getenv("GROQ_API_KEY") and "dummy" not in os.getenv("GROQ_API_KEY", "") else "✗"
     }
@@ -120,6 +126,6 @@ async def health_check():
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
         "env_configured": env_status,
-        "message": "All systems operational" if all_configured else "⚠️ Environment variables not configured - see VERCEL_ENV_SETUP.md"
+        "message": "All systems operational" if all_configured else "⚠️ Environment variables not configured"
     }
 

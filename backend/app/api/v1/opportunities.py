@@ -15,7 +15,9 @@ from app.mcp.factory import get_mcp_provider
 from app.mcp.base import TimeframeEnum
 from app.api.dependencies import get_current_user
 from app.models.auth_models import User
-from app.core.database import get_db
+from app.core.database import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -394,7 +396,8 @@ async def _scan_ticker_for_opportunities(
 
 @router.get("/feed", response_model=OpportunitiesFeedResponse)
 async def get_opportunities_feed(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
 ):
     """
     Get pre-filtered feed of actionable opportunities from statistically similar stocks
@@ -409,10 +412,11 @@ async def get_opportunities_feed(
     try:
         logger.info(f"Fetching opportunities for user: {current_user.id}")
         
-        # Get user's portfolio tickers
-        db = get_db()
-        portfolio_result = db.table("portfolio_positions").select("ticker").eq("user_id", current_user.id).execute()
-        owned_tickers = list(set([p["ticker"] for p in portfolio_result.data]))
+        # Get user's portfolio tickers using async SQLAlchemy
+        from app.models.sql_tables import PortfolioPosition
+        stmt = select(PortfolioPosition.ticker).where(PortfolioPosition.user_id == current_user.id)
+        result = await session.execute(stmt)
+        owned_tickers = list(set([row[0] for row in result.fetchall()]))
         
         logger.info(f"User owns: {owned_tickers}")
         
@@ -511,12 +515,13 @@ async def get_opportunities_feed(
 
 
 @router.get("/health")
-async def opportunities_health():
+async def opportunities_health(session: AsyncSession = Depends(get_session)):
     """Health check endpoint"""
     try:
-        # Test database connection
-        db = get_db()
-        db.table("portfolio_positions").select("ticker").limit(1).execute()
+        # Test database connection using async SQLAlchemy
+        from app.models.sql_tables import PortfolioPosition
+        stmt = select(PortfolioPosition.ticker).limit(1)
+        await session.execute(stmt)
         
         # Test Yahoo Finance
         test_stock = yf.Ticker("RELIANCE.NS")

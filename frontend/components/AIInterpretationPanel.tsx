@@ -93,12 +93,7 @@ export function AIInterpretationPanel({ explanation, className = '' }: AIInterpr
         </div>
       )}
 
-      {/* Disclaimer */}
-      <div className="pt-4 border-t border-border">
-        <p className="text-xs text-muted-foreground">
-          <strong>Note:</strong> {explanation.disclaimer}
-        </p>
-      </div>
+
     </div>
   );
 }

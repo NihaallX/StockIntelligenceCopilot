@@ -51,10 +51,11 @@ class Settings(BaseSettings):
     # Removed: ALPHA_VANTAGE_KEY (rate limited), TWELVE_DATA_KEY (paywall for Indian stocks)
     MCP_PROVIDER: str = "yahoo"  # Yahoo Finance only (intraday + fundamentals)
     
-    # Phase 2A: Supabase Configuration
-    SUPABASE_URL: str = "https://dummy.supabase.co"
-    SUPABASE_ANON_KEY: str = "dummy_anon_key"
-    SUPABASE_SERVICE_ROLE_KEY: str = "dummy_service_key"
+    # Phase 2A: Database Configuration (Neon/Postgres)
+    DATABASE_URL: str = "postgresql+asyncpg://user:pass@host/db"
+    
+    # Feature Flags
+    DB_ECHO_LOGS: bool = False
     
     # Phase 2A: JWT Configuration
     JWT_SECRET_KEY: str = "your_super_secret_jwt_key_change_in_production"
@@ -97,6 +98,7 @@ class Settings(BaseSettings):
         case_sensitive = True
         env_file = str(ENV_FILE)
         env_file_encoding = 'utf-8'
+        extra = "ignore"
 
 
 settings = Settings()

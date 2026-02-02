@@ -100,10 +100,7 @@ export function Footer() {
         <div className="pt-8 border-t border-border">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
             <p>© {currentYear} Stock Intelligence Copilot. All rights reserved.</p>
-            <div className="px-4 py-2 rounded-lg bg-destructive/10 text-destructive text-xs max-w-2xl text-center">
-              <strong>DISCLAIMER:</strong> This is NOT financial advice. All analysis is for
-              educational purposes only. Invest at your own risk.
-            </div>
+
           </div>
         </div>
       </div>
